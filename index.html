@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>時計島のシフト</title>
+<!-- v16: BGM追加（Web Audio合成ループ＋ミュート切替）、短い画面でのレイアウト詰め直し（出現ボタンで2段になっても収まる寸法に）。v15: タイトル画面/レベル選択/進行度保存/全クリア画面、Web Audio効果音、バウンド無限ループ対策（連鎖上限3回）。v15バックアップ: role-shift-prototype-v15-backup.html -->
+<style>
+  :root { --cell: min(12.5vw, 52px); }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: system-ui, sans-serif; background: linear-gradient(180deg, #0d2436 0%, #123950 55%, #1a4a5e 100%); color: #eef6f3; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; gap: 14px; padding: 16px; overflow: hidden; position: relative; }
+  #title { font-size: 17px; font-weight: 800; letter-spacing: .35em; color: #f2c86d; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  .gear { position: fixed; color: #f2c86d; opacity: .08; pointer-events: none; z-index: 0; animation: gearSpin 40s linear infinite; }
+  .gear.g1 { font-size: 300px; left: -90px; top: -70px; }
+  .gear.g2 { font-size: 220px; right: -70px; bottom: -60px; animation-direction: reverse; }
+  @keyframes gearSpin { to { transform: rotate(360deg); } }
+  body > *:not(.gear) { z-index: 1; }
+  #phase { font-size: 15px; letter-spacing: .08em; opacity: .9; height: 22px; text-align: center; }
+  #phase b { color: #e8b93e; }
+  #phase.walk b { color: #7fd4ff; }
+  button:disabled { opacity: .3; }
+  .well { animation: wellPulse 1.2s ease-in-out infinite; }
+  @keyframes wellPulse { 0%,100% { outline-color: #8a7f5c; } 50% { outline-color: #e8b93e; } }
+  #boardWrap { transition: transform .42s cubic-bezier(.3,.7,.3,1); }
+  #boardWrap.noanim { transition: none; }
+  #board { display: grid; grid-template-columns: repeat(7, var(--cell)); gap: 3px; }
+  .cell { width: var(--cell); height: var(--cell); border-radius: 6px; position: relative; background: rgba(8, 22, 34, .55); box-shadow: inset 0 0 0 1px rgba(160, 210, 230, .06); }
+  .terrain { background: linear-gradient(180deg, #7d8a99, #5d6b7a); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.18); }
+  .stone { background: linear-gradient(180deg, #8a7f70, #655c50); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25); }
+  .crack { background: linear-gradient(180deg, #7a6248, #59452e); box-shadow: inset 0 -5px 0 rgba(0,0,0,.3); }
+  .crack::after { content: "✕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(0,0,0,.45); font-size: calc(var(--cell)*.5); font-weight: 900; }
+  body.stopped #boardWrap { filter: saturate(.3) brightness(1.25); }
+  body.stopped #phase { color: #a8c8ff; }
+  body.gravup { background: #261a30; }
+  body.zeroG { background: #14303a; }
+  #gravBtn { background: #8fe388; color: #12330f; }
+  #ghost { position: absolute; inset: 14%; border: 2px dashed rgba(255,255,255,.75); border-radius: 50% 50% 46% 46%; background: rgba(255,255,255,.28); z-index: 1; }
+  .portal { position: absolute; inset: 6%; border-radius: 50%; background: conic-gradient(from 0deg, #d3a6ff, #6a1fb0, #d3a6ff); animation: portalSpin 2.4s linear infinite; z-index: 1; opacity: .95; box-shadow: 0 0 14px 3px rgba(179, 136, 255, .55); }
+  @keyframes portalSpin { to { transform: rotate(360deg); } }
+  .well { outline: 2px dashed #a8873f; outline-offset: -4px; }
+  .block { background: linear-gradient(180deg, #d9a75a, #b57f35), repeating-linear-gradient(45deg, transparent 0 10px, rgba(90,55,10,.25) 10px 12px); background-blend-mode: multiply; border-radius: 6px; box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 0 0 2px rgba(90,55,10,.35); }
+  .goal::after { content: "⚑"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(var(--cell)*.6); color: #ffd94d; text-shadow: 0 0 8px rgba(255,217,77,.8); }
+  #player { position: absolute; inset: 14%; background: linear-gradient(180deg, #4fe3cf, #22a68f); border-radius: 50% 50% 46% 46%; box-shadow: 0 3px 0 rgba(0,0,0,.3), inset 0 -6px 0 rgba(0,0,0,.15); z-index: 2; }
+  #player::after { content: ""; position: absolute; left: 50%; top: 34%; width: 16%; height: 16%; margin-left: 6%; background: #123; border-radius: 50%; }
+  .walk #player { background: linear-gradient(180deg, #6fe0ff, #2b9fd8); }
+  #player.animFall { transition: transform .3s ease-in; }
+  #blocksLeft { font-size: 20px; letter-spacing: .3em; height: 24px; }
+  #controls { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  #controlsMain, #controlsSub { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #controlsSub { gap: 8px; }
+  button { font-size: 16px; padding: 11px 20px; border: none; border-radius: 999px; cursor: pointer; font-weight: 700; }
+  #controlsSub button { font-size: 14px; padding: 8px 14px; }
+  #upBtn, #downBtn { display: none; }
+  body.zeroG #upBtn, body.zeroG #downBtn { display: inline-block; }
+  #rotL, #rotR { background: #e8b93e; color: #221d08; }
+  #leftBtn, #rightBtn, #upBtn, #downBtn { background: #7fd4ff; color: #0a2436; }
+  #stopBtn { background: #a8c8ff; color: #10233d; }
+  #ffBtn { background: #ffb37f; color: #3d2102; }
+  #ffBtn.on { background: #ff7f2a; color: #fff; }
+  #stopBtn.on { background: #4a7dc9; color: #fff; }
+  #rewindBtn { background: #b9a8ff; color: #241a4d; }
+  #retryBtn { background: #55506a; color: #eee; }
+  #nextBtn { background: #2e7d5b; color: #eafff3; display: none; }
+  #msg { font-size: 26px; font-weight: 800; height: 34px; letter-spacing: .1em; }
+  #msg.clear { color: #7be3ae; }
+  #msg.fail { color: #ff8f8f; }
+  /* v15: クリア表示の最小限の動き */
+  #msg.clear { animation: msgPop .55s ease; }
+  @keyframes msgPop { 0% { transform: scale(.6); } 55% { transform: scale(1.3); } 100% { transform: scale(1); } }
+  /* v15: タイトル/全クリア画面（レベル選択つき） */
+  #overlay { position: fixed; inset: 0; background: rgba(6, 18, 28, .78); display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+  #overlayCard { background: linear-gradient(180deg, #123950, #0d2436); border: 1px solid rgba(242, 200, 109, .35); border-radius: 18px; padding: 26px 22px; max-width: 430px; width: 100%; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-height: 92dvh; overflow-y: auto; }
+  .ovTitle { font-size: 26px; font-weight: 800; letter-spacing: .3em; color: #f2c86d; margin-bottom: 10px; }
+  .ovSub { font-size: 13px; opacity: .85; margin-bottom: 18px; line-height: 1.7; }
+  #startBtn { background: #2e7d5b; color: #eafff3; font-size: 17px; padding: 12px 28px; margin-bottom: 18px; }
+  .ovLabel { font-size: 12px; opacity: .75; margin-bottom: 8px; letter-spacing: .1em; }
+  .lvGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .lvBtn { background: #1d5b74; color: #eef6f3; padding: 11px 0; font-size: 15px; }
+  .lvBtn.cleared { background: #8a6d1f; color: #ffe9a8; }
+  .lvBtn:disabled { opacity: .28; }
+  #wipeBtn, #backBtn { background: transparent; color: #b9cdd6; font-size: 12px; padding: 6px 10px; text-decoration: underline; }
+  #titleBtn { background: #37455c; color: #dbe7ee; }
+  /* v16: BGMミュート切替 */
+  #muteBtn { background: #2b4a5a; color: #cfe8ef; }
+  #muteBtn.off { opacity: .45; text-decoration: line-through; }
+  /* v16: 背の低い画面では余白とマスを詰めて操作系を収める（出現ボタンでメイン行が2段になっても収まる寸法に） */
+  @media (max-height: 700px) {
+    :root { --cell: min(12.5vw, 42px); }
+    body { gap: 6px; padding: 8px; }
+    #title { font-size: 15px; }
+    #phase { height: 18px; font-size: 13px; }
+    #blocksLeft { height: 20px; font-size: 17px; }
+    #controls { gap: 5px; }
+    #controlsMain, #controlsSub { gap: 6px; }
+    #controlsMain button { padding: 8px 14px; font-size: 15px; }
+    #controlsSub button { padding: 6px 10px; font-size: 13px; }
+    #msg { height: 26px; font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+  <div class="gear g1">⚙</div>
+  <div class="gear g2">⚙</div>
+  <div id="title">時計島のシフト</div>
+  <div id="phase">つくる</div>
+  <div id="boardWrap"><div id="board"></div></div>
+  <div id="blocksLeft"></div>
+  <div id="msg"></div>
+  <div id="controls">
+    <div id="controlsMain">
+      <button id="rotL">⟲</button>
+      <button id="leftBtn">◀</button>
+      <button id="upBtn">▲</button>
+      <button id="downBtn">▼</button>
+      <button id="rightBtn">▶</button>
+      <button id="rotR">⟳</button>
+      <button id="nextBtn">つぎの面 ▶</button>
+    </div>
+    <div id="controlsSub">
+      <button id="stopBtn" title="時間停止">⏸</button>
+      <button id="ffBtn" title="早送り（勢い）">⚡</button>
+      <button id="gravBtn" title="重力切り替え（下→上→無重力）">重力 ↓</button>
+      <button id="rewindBtn" title="巻き戻し">↩</button>
+      <button id="retryBtn" title="この面を最初から">↻</button>
+      <button id="titleBtn" title="タイトル（レベル選択）">タイトル</button>
+      <button id="muteBtn" title="BGM オン/オフ">♪</button>
+    </div>
+  </div>
+  <div id="overlay"><div id="overlayCard"></div></div>
+<script>
+"use strict";
+// ===== レベル定義（つくる画面＝回転0の座標） =====
+const N = 7;
+const key = (x, y) => x + "," + y;
+function tub(mirror, extraStone) {
+  const t = new Set();
+  for (let x = 0; x < N; x++) t.add(key(x, 6));                       // 床
+  const wallCol = mirror ? 6 : 0;                                    // 全体の壁
+  const holeCol = mirror ? 0 : 6;                                    // 穴あき壁（回転後に床の穴になる）
+  for (let y = 0; y < 6; y++) t.add(key(wallCol, y));
+  for (const y of [0, 1, 4, 5]) t.add(key(holeCol, y));
+  if (extraStone) t.add(extraStone);
+  return t;
+}
+function box() {
+  const t = new Set();
+  for (let x = 0; x < N; x++) { t.add(key(x, 6)); t.add(key(x, 0)); }
+  for (let y = 1; y < 6; y++) { t.add(key(0, y)); t.add(key(6, y)); }
+  return t;
+}
+const LEVELS = [
+  { // 1面：時計回り。井戸2に2個＋井戸4に4個
+    terrain: tub(false, null), stones: new Set(),
+    wells: [2, 4], blockCount: 6, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
+  },
+  { // 2面：反時計回り（鏡像）。石（地形）が1個混ざり、井戸2は実質3個で届く
+    terrain: tub(true, key(2, 2)), stones: new Set([key(2, 2)]),
+    wells: [2, 4], blockCount: 5, wellCap: 4,
+    start: { x: 5, y: 5 }, goal: { x: 1, y: 0 },
+  },
+  { // 3面：井戸3本。真ん中は使わなくても解ける（配分がパズル）
+    terrain: tub(false, null), stones: new Set(),
+    wells: [2, 3, 4], blockCount: 6, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
+  },
+  { // 4面：箱の中。回転2回（180度）でゴールが降りてくる
+    terrain: box(), stones: new Set(),
+    wells: [3], blockCount: 3, wellCap: 3,
+    start: { x: 1, y: 5 }, goal: { x: 1, y: 1 },
+  },
+  { // 5面：ヒビ床。普通に落ちると上に乗るだけ。⚡早送りで勢いをつけて割り抜けると、その先がゴール
+    terrain: (() => { const t = tub(false, null); t.delete(key(6, 0)); t.add(key(5, 1)); return t; })(),
+    stones: new Set(), cracks: new Set([key(5, 1)]),
+    wells: [3], blockCount: 4, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 5, y: 1 },
+  },
+  { // 6面：上昇。床まで渡ってから重力を反転すると、ゴールまで昇っていける
+    terrain: tub(false, null), stones: new Set(),
+    wells: [2, 4], blockCount: 6, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 1, y: 1 },
+  },
+  { // 7面：バウンド。長く落ちて着地すると、進んでいた向きに跳ね返って高いゴールに届く
+    terrain: (() => { const t = new Set(); for (let x = 0; x < N; x++) t.add(key(x, 6)); for (let y = 0; y < 6; y++) t.add(key(0, y)); for (const y of [0, 1, 3, 4, 5]) t.add(key(6, y)); t.add(key(3, 0)); return t; })(),
+    stones: new Set([key(3, 0)]),
+    wells: [2], blockCount: 4, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 4, y: 0 },
+  },
+  { // 8面：風。落下中に右へ流され続けて、遠くのゴールに運ばれる
+    terrain: (() => { const t = new Set(); for (let x = 0; x < N; x++) t.add(key(x, 6)); for (let y = 0; y < 6; y++) t.add(key(0, y)); for (const y of [0, 1, 5]) t.add(key(6, y)); return t; })(),
+    stones: new Set(), wind: 1,
+    wells: [2], blockCount: 3, wellCap: 3,
+    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
+  },
+  { // 9面：無重力。重力を3段階に切り替え（下→上→無）、浮いて柱を越える
+    terrain: (() => { const t = box(); for (const y of [2, 3, 4, 5]) t.add(key(3, y)); return t; })(),
+    stones: new Set(),
+    wells: [], blockCount: 0, wellCap: 0,
+    start: { x: 1, y: 5 }, goal: { x: 5, y: 2 },
+  },
+  { // 10面：残像。回転した瞬間、元の場所に残像が残って足場になる
+    terrain: tub(false, null), stones: new Set(),
+    wells: [], blockCount: 0, wellCap: 0,
+    start: { x: 1, y: 5 }, goal: { x: 4, y: 5 },
+  },
+  { // 11面：ワープ。紫の渦に入ると、対の渦へ瞬間移動する（出口がそのままゴール）
+    terrain: tub(false, key(3, 0)), stones: new Set([key(3, 0)]),
+    portals: [{ x: 5, y: 1 }, { x: 2, y: 0 }],
+    wells: [2, 4], blockCount: 6, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 2, y: 0 },
+  },
+  { // 12面：ワープ＋逆重力。ワープの着地点から重力を反転して昇るとゴール
+    terrain: tub(false, key(3, 0)), stones: new Set([key(3, 0)]),
+    portals: [{ x: 5, y: 1 }, { x: 2, y: 0 }],
+    wells: [2, 4], blockCount: 6, wellCap: 4,
+    start: { x: 1, y: 5 }, goal: { x: 1, y: 0 },
+  },
+];
+// =================================================
+
+let levelIdx = 0;
+let S = null;
+const board = document.getElementById('board');
+const boardWrap = document.getElementById('boardWrap');
+const phaseEl = document.getElementById('phase');
+const blocksLeftEl = document.getElementById('blocksLeft');
+const msgEl = document.getElementById('msg');
+const nextBtn = document.getElementById('nextBtn');
+let cells = [];
+let playerEl = null;
+let ghostEl = null;
+let portalEls = [];
+let animating = false;
+
+let history = [];
+let timeStopped = false;
+let fastFall = false;
+let fallMomentum = 0;
+let gravMode = 'down'; // 'down' | 'up' | 'zero'
+const gravDir = () => gravMode === 'up' ? -1 : 1;
+let lastDx = 0;
+let bouncing = false;
+let bounceChain = 0; // v15: 1回の操作内でのバウンド連鎖数（無限ループ対策、上限3）
+
+// ===== v15: 効果音（Web Audio の簡易合成、外部ファイルなし） =====
+let audioCtx = null;
+function ensureAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { /* 音が出ない環境では無音で続行 */ }
+}
+document.addEventListener('pointerdown', () => { ensureAudio(); bgmStart(); });
+function tone(freqA, freqB, dur, type, vol, delay = 0) {
+  if (!audioCtx) return;
+  try {
+    const t0 = audioCtx.currentTime + delay;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freqA, t0);
+    if (freqB !== freqA) o.frequency.exponentialRampToValueAtTime(Math.max(30, freqB), t0 + dur);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) {}
+}
+function noiseBurst(dur, vol) {
+  if (!audioCtx) return;
+  try {
+    const len = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const g = audioCtx.createGain(); g.gain.value = vol;
+    src.connect(g); g.connect(audioCtx.destination); src.start();
+  } catch (e) {}
+}
+const seTap = () => tone(660, 660, 0.06, 'square', 0.06);
+const seRotate = () => tone(180, 620, 0.2, 'sawtooth', 0.05);
+const seLand = () => tone(130, 60, 0.12, 'sine', 0.16);
+const seBreak = () => noiseBurst(0.16, 0.2);
+const seBounce = () => tone(280, 720, 0.16, 'sine', 0.12);
+const seWarp = () => { tone(500, 900, 0.09, 'square', 0.07); tone(900, 500, 0.09, 'square', 0.07, 0.09); };
+const seClear = () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.14, 'triangle', 0.12, i * 0.09)); };
+const seFail = () => tone(320, 110, 0.32, 'sawtooth', 0.08);
+
+// ===== v16: BGM（Web Audio合成の軽いループ、外部ファイルなし） =====
+// オルゴール風：Cメジャーペンタトニックの旋律＋静かなアルペジオ。8小節ループ。
+const BGM_STEP = 60 / 92 / 2; // 8分音符（92 BPM）
+const BGM_CHORDS = [ // [ベース音, アルペジオ音階]
+  [130.81, [261.63, 329.63, 392.00]], // C
+  [98.00,  [246.94, 293.66, 392.00]], // G
+  [110.00, [220.00, 261.63, 329.63]], // Am
+  [87.31,  [174.61, 220.00, 261.63]], // F
+  [130.81, [261.63, 329.63, 392.00]], // C
+  [98.00,  [246.94, 293.66, 392.00]], // G
+  [87.31,  [174.61, 220.00, 261.63]], // F
+  [98.00,  [246.94, 293.66, 392.00]], // G
+];
+const E5 = 659.25, G5 = 783.99, A5 = 880.00, D5 = 587.33, C5 = 523.25;
+const BGM_MELODY = [ // 64ステップ（8小節×8）。0は休符
+  E5, 0, G5, 0, A5, 0, G5, 0,
+  E5, 0, D5, 0, E5, 0, 0, 0,
+  A5, 0, G5, 0, E5, 0, D5, 0,
+  E5, 0, 0, 0, D5, 0, 0, 0,
+  C5, 0, E5, 0, G5, 0, A5, 0,
+  G5, 0, E5, 0, D5, 0, E5, 0,
+  D5, 0, 0, 0, E5, 0, G5, 0,
+  C5, 0, 0, 0, 0, 0, 0, 0,
+];
+let bgmTimer = null, bgmStepCount = 0, bgmNextTime = 0, bgmMuted = false;
+function bgmSchedule() {
+  if (!audioCtx) return;
+  while (bgmNextTime < audioCtx.currentTime + 0.35) {
+    const s = bgmStepCount % 64;
+    const bar = Math.floor(s / 8), st = s % 8;
+    const [bass, arp] = BGM_CHORDS[bar];
+    const delay = Math.max(0, bgmNextTime - audioCtx.currentTime);
+    if (st === 0) tone(bass, bass, 1.4, 'sine', 0.04, delay);
+    if (st % 2 === 0) tone(arp[[0, 1, 2, 1][st / 2]], arp[[0, 1, 2, 1][st / 2]], 0.5, 'triangle', 0.015, delay);
+    const m = BGM_MELODY[s];
+    if (m) tone(m, m, 0.7, 'sine', 0.045, delay);
+    bgmNextTime += BGM_STEP;
+    bgmStepCount++;
+  }
+}
+function bgmStart() {
+  if (bgmMuted) return;
+  ensureAudio();
+  if (!audioCtx || bgmTimer) return;
+  bgmStepCount = 0;
+  bgmNextTime = audioCtx.currentTime + 0.06;
+  bgmTimer = setInterval(bgmSchedule, 200);
+}
+function bgmStop() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
+function updateMuteBtn() { document.getElementById('muteBtn').classList.toggle('off', bgmMuted); }
+
+// ===== v15: 進行度の保存（localStorage） =====
+const SAVE_KEY = 'tokeijima-shift-progress-v1';
+let progress = { unlocked: 1, cleared: [] };
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (p && p.unlocked >= 1) progress = { unlocked: Math.min(LEVELS.length, p.unlocked), cleared: Array.isArray(p.cleared) ? p.cleared : [] };
+  }
+} catch (e) { /* 保存できない環境ではメモリ上のみ */ }
+function saveProgress() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); } catch (e) {} }
+function continueIdx() {
+  for (let i = 0; i < LEVELS.length; i++) if (!progress.cleared[i]) return i;
+  return LEVELS.length - 1;
+}
+let started = false;
+function startLevel(idx) {
+  started = true;
+  levelIdx = idx;
+  hideOverlay();
+  reset();
+}
+function onCleared() {
+  progress.cleared[levelIdx] = true;
+  progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2));
+  saveProgress();
+  if (levelIdx === LEVELS.length - 1) setTimeout(showAllClear, 1100);
+}
+function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
+function showTitle() {
+  const card = document.getElementById('overlayCard');
+  const clearedCount = progress.cleared.filter(Boolean).length;
+  let grid = '';
+  for (let i = 0; i < LEVELS.length; i++) {
+    const locked = i >= progress.unlocked;
+    grid += `<button class="lvBtn${progress.cleared[i] ? ' cleared' : ''}" data-lv="${i}" ${locked ? 'disabled' : ''}>${i + 1}${progress.cleared[i] ? ' ✓' : ''}</button>`;
+  }
+  card.innerHTML = `
+    <div class="ovTitle">時計島のシフト</div>
+    <div class="ovSub">SHIFTで世界を回して、ゴールの旗へ。</div>
+    <button id="startBtn">${clearedCount === 0 ? 'はじめる' : 'つづきから（' + (continueIdx() + 1) + '面）'}</button>
+    <div class="ovLabel">レベルをえらぶ（クリア ${clearedCount} / ${LEVELS.length}）</div>
+    <div class="lvGrid">${grid}</div>
+    ${started ? '<button id="backBtn">ゲームにもどる</button>' : ''}
+    <button id="wipeBtn">記録を消す</button>`;
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('startBtn').addEventListener('click', () => startLevel(continueIdx()));
+  card.querySelectorAll('.lvBtn').forEach(b => b.addEventListener('click', () => startLevel(Number(b.dataset.lv))));
+  const back = document.getElementById('backBtn');
+  if (back) back.addEventListener('click', hideOverlay);
+  document.getElementById('wipeBtn').addEventListener('click', () => {
+    progress = { unlocked: 1, cleared: [] }; saveProgress(); showTitle();
+  });
+}
+function showAllClear() {
+  const card = document.getElementById('overlayCard');
+  card.innerHTML = `
+    <div class="ovTitle">全クリア！</div>
+    <div class="ovSub">12面すべて制覇。時計島の歯車は、また静かに回り続けます。</div>
+    <button id="startBtn">タイトルへもどる</button>`;
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('startBtn').addEventListener('click', showTitle);
+}
+
+function initialState(idx) {
+  const L = LEVELS[idx];
+  return {
+    rot: 0,
+    terrain: new Set(L.terrain),
+    stones: L.stones,
+    cracks: new Set(L.cracks || []),
+    blocks: new Set(),
+    player: { ...L.start },
+    goal: { ...L.goal },
+    ghost: null,
+    portals: L.portals ? L.portals.map(p => ({ ...p })) : null,
+    portalLock: false,
+    wind: L.wind || 0,
+    done: false,
+    result: "",
+  };
+}
+
+function snapshot() {
+  history.push({
+    terrain: [...S.terrain], cracks: [...S.cracks], blocks: [...S.blocks],
+    player: { ...S.player }, goal: { ...S.goal }, rot: S.rot, grav: gravMode,
+    ghost: S.ghost ? { ...S.ghost } : null,
+    portals: S.portals ? S.portals.map(p => ({ ...p })) : null,
+  });
+  if (history.length > 80) history.shift();
+}
+
+function rewind() {
+  const snap = history.pop();
+  if (!snap) return;
+  bounceChain = 0;
+  stopFalling();
+  timeStopped = false;
+  gravMode = snap.grav;
+  S.ghost = snap.ghost;
+  S.portals = snap.portals;
+  S.portalLock = false;
+  S.terrain = new Set(snap.terrain);
+  S.cracks = new Set(snap.cracks);
+  S.blocks = new Set(snap.blocks);
+  S.player = snap.player;
+  S.goal = snap.goal;
+  S.rot = snap.rot;
+  S.done = false;
+  S.result = '';
+  render();
+}
+
+function buildDom() {
+  board.innerHTML = '';
+  cells = [];
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.dataset.x = x; d.dataset.y = y;
+      d.addEventListener('click', () => onCellTap(x, y));
+      board.appendChild(d);
+      cells.push(d);
+    }
+  }
+  playerEl = document.createElement('div');
+  playerEl.id = 'player';
+  ghostEl = document.createElement('div');
+  ghostEl.id = 'ghost';
+  portalEls = [document.createElement('div'), document.createElement('div')];
+  portalEls.forEach(el => el.className = 'portal');
+}
+
+function cellAt(x, y) { return cells[y * N + x]; }
+function solid(x, y) {
+  return S.terrain.has(key(x, y)) || S.blocks.has(key(x, y))
+    || (S.ghost && S.ghost.x === x && S.ghost.y === y);
+}
+
+let falling = false;
+let fallTimer = null;
+function supported() {
+  const { x, y } = S.player;
+  const ny = y + gravDir();
+  if (ny < 0 || ny >= N) return S.terrain.has(key(x, y));
+  return solid(x, ny);
+}
+let queuedDx = 0;
+function flushQueue() {
+  if (queuedDx !== 0 && !S.done) {
+    const d = queuedDx;
+    queuedDx = 0;
+    move(d);
+  }
+}
+
+function startFalling() {
+  maybeTeleport();
+  if (gravMode === 'zero') { checkGoal(); render(); return; }
+  if (supported()) { checkGoal(); render(); flushQueue(); return; }
+  falling = true;
+  fallMomentum = 0;
+  const interval = () => fastFall ? 32 : 70;
+  const gain = () => fastFall ? 2 : 1;
+  const step = () => {
+    if (S.done) { falling = false; return; }
+    if (timeStopped) { fallTimer = setTimeout(step, 90); return; } // 時間停止中は空中で待つ
+    const { x, y } = S.player;
+    const d = gravDir();
+    const ny = y + d;
+    if (ny < 0 || ny >= N) {
+      if (!S.terrain.has(key(x, y))) fail();
+      else if (fallMomentum > 0) seLand();
+      falling = false; checkGoal(); render(); flushQueue(); return;
+    }
+    if (solid(x, ny)) {
+      if (x === S.goal.x && y === S.goal.y) { falling = false; checkGoal(); render(); return; } // ゴール着地が最優先
+      const below = key(x, ny);
+      if (S.cracks.has(below) && fallMomentum >= 3) {
+        // 勢いでヒビ床を割り抜ける
+        S.cracks.delete(below);
+        S.terrain.delete(below);
+        seBreak();
+        S.player.y = ny;
+        fallMomentum += gain();
+        render();
+        fallTimer = setTimeout(step, interval());
+        return;
+      }
+      if (fallMomentum >= 3 && lastDx !== 0 && bounceChain < 3) {
+        // バウンド：勢いを残して、進んでいた向きへ斜めに跳ね返る
+        // v15: 連鎖上限3回。ワープ等と組み合わさった無限バウンドを防ぐ
+        falling = false;
+        bouncing = true;
+        bounceChain++;
+        seBounce();
+        let left = Math.min(3, fallMomentum - 2);
+        const bst = () => {
+          if (S.done) { bouncing = false; return; }
+          if (left <= 0) { bouncing = false; startFalling(); return; }
+          const nx = S.player.x + lastDx, ny2 = S.player.y - gravDir();
+          if (nx < 0 || nx >= N || ny2 < 0 || ny2 >= N || solid(nx, ny2) || solid(nx, S.player.y)) {
+            bouncing = false; startFalling(); return;
+          }
+          S.player.x = nx; S.player.y = ny2; left--;
+          maybeTeleport();
+          render();
+          checkGoal();
+          if (S.done) { bouncing = false; render(); return; }
+          fallTimer = setTimeout(bst, 65);
+        };
+        fallTimer = setTimeout(bst, 65);
+        render();
+        return;
+      }
+      if (fallMomentum > 0) seLand();
+      falling = false; checkGoal(); render(); flushQueue(); return;
+    }
+    S.player.y = ny;
+    fallMomentum += gain();
+    // 風：落下・上昇のたびに横へ流される
+    if (S.wind !== 0) {
+      const wx = S.player.x + S.wind;
+      if (wx >= 0 && wx < N && !solid(wx, S.player.y)) S.player.x = wx;
+    }
+    maybeTeleport();
+    render();
+    fallTimer = setTimeout(step, interval());
+  };
+  step(); // 最初の1マスは即時に落とす（テンポと割り込みの両立）
+}
+function stopFalling() {
+  if (fallTimer) clearTimeout(fallTimer);
+  fallTimer = null;
+  falling = false;
+}
+
+function render() {
+  const L = LEVELS[levelIdx];
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const d = cellAt(x, y);
+      d.className = 'cell'
+        + (S.terrain.has(key(x, y)) ? (S.cracks.has(key(x, y)) ? ' crack' : (S.stones.has(key(x, y)) ? ' stone' : ' terrain')) : '')
+        + (S.blocks.has(key(x, y)) ? ' block' : '')
+        + (S.goal.x === x && S.goal.y === y ? ' goal' : '')
+        + (S.rot === 0 && L.wells.includes(x) && !S.terrain.has(key(x, y)) ? ' well' : '');
+    }
+  }
+  if (S.ghost) cellAt(S.ghost.x, S.ghost.y).appendChild(ghostEl);
+  if (S.portals) S.portals.forEach((p, i) => cellAt(p.x, p.y).appendChild(portalEls[i]));
+  cellAt(S.player.x, S.player.y).appendChild(playerEl);
+  playerEl.style.transform = gravMode === 'up' ? 'scaleY(-1)' : '';
+  document.body.classList.toggle('walk', S.rot !== 0);
+  document.body.classList.toggle('gravup', gravMode === 'up');
+  document.body.classList.toggle('zeroG', gravMode === 'zero');
+  document.getElementById('gravBtn').textContent = gravMode === 'up' ? '重力 ↑' : (gravMode === 'zero' ? '無重力' : '重力 ↓');
+  phaseEl.className = S.rot === 0 ? '' : 'walk';
+  phaseEl.innerHTML = S.done ? '' : (S.rot === 0
+    ? `<b>つくる</b>（${levelIdx + 1}面）：井戸タップで積む → SHIFTで回転`
+    : `<b>わたる</b>：◀▶で進む ／ SHIFTで再回転（落下中もOK）・ ${S.rot * 90}°`) + (S.wind !== 0 ? ` ／ 風 ${S.wind > 0 ? '→' : '←'}` : '') + (gravMode === 'zero' ? ' ／ 無重力：▲▼◀▶で浮遊' : '');
+  document.getElementById('leftBtn').disabled = (S.rot === 0 && gravMode !== 'zero') || S.done;
+  document.getElementById('rightBtn').disabled = (S.rot === 0 && gravMode !== 'zero') || S.done;
+  document.getElementById('upBtn').disabled = gravMode !== 'zero' || S.done;
+  document.getElementById('downBtn').disabled = gravMode !== 'zero' || S.done;
+  document.getElementById('rotL').disabled = S.done;
+  document.getElementById('rotR').disabled = S.done;
+  document.body.classList.toggle('stopped', timeStopped);
+  document.getElementById('stopBtn').classList.toggle('on', timeStopped);
+  document.getElementById('stopBtn').textContent = timeStopped ? '▶' : '⏸';
+  document.getElementById('ffBtn').classList.toggle('on', fastFall);
+  document.getElementById('rewindBtn').disabled = history.length === 0;
+  const left = L.blockCount - S.blocks.size;
+  blocksLeftEl.textContent = S.rot === 0 ? '■'.repeat(left) + '□'.repeat(L.blockCount - left) : '';
+  msgEl.textContent = S.result;
+  msgEl.className = S.result === 'クリア！' ? 'clear' : (S.result ? 'fail' : '');
+  nextBtn.style.display = (S.done && S.result === 'クリア！' && levelIdx < LEVELS.length - 1) ? 'block' : 'none';
+}
+
+function maybeTeleport() {
+  if (!S.portals) return;
+  const [a, b] = S.portals;
+  const onA = S.player.x === a.x && S.player.y === a.y;
+  const onB = S.player.x === b.x && S.player.y === b.y;
+  if (!onA && !onB) { S.portalLock = false; return; }
+  if (S.portalLock) return;
+  S.portalLock = true;
+  S.player = onA ? { ...b } : { ...a };
+  seWarp();
+}
+
+function fail() { S.done = true; S.result = 'おちた'; seFail(); }
+
+function checkGoal() {
+  if (!S.done && S.player.x === S.goal.x && S.player.y === S.goal.y) {
+    S.done = true;
+    S.result = 'クリア！';
+    seClear();
+    onCleared();
+  }
+}
+
+function onCellTap(x, y) {
+  if (S.rot !== 0 || S.done) return;
+  const L = LEVELS[levelIdx];
+  if (!L.wells.includes(x)) return;
+  const stack = [];
+  for (let yy = 0; yy < N; yy++) if (S.blocks.has(key(x, yy))) stack.push(yy);
+  if (stack.length && y === Math.min(...stack)) {
+    snapshot();
+    S.blocks.delete(key(x, Math.min(...stack)));
+    seTap();
+  } else if (S.blocks.size < L.blockCount && stack.length < L.wellCap) {
+    let yy = 5;
+    while (yy >= 0 && (S.blocks.has(key(x, yy)) || S.terrain.has(key(x, yy)))) yy--;
+    if (yy >= 0) { snapshot(); S.blocks.add(key(x, yy)); seTap(); }
+  }
+  render();
+}
+
+function rotate(dir) {
+  if (S.done || animating || bouncing) return;
+  bounceChain = 0;
+  seRotate();
+  snapshot();
+  S.ghost = { ...S.player }; // 残像：回転前の自分の場所が足場として残る（画面固定）
+  stopFalling(); // 落下中でも割り込んで回せる
+  animating = true;
+  boardWrap.style.transform = `rotate(${dir * 90}deg)`;
+  setTimeout(() => {
+    boardWrap.classList.add('noanim');
+    const rotSet = (set) => new Set([...set].map(k => {
+      const [x, y] = k.split(',').map(Number);
+      return dir > 0 ? key(N - 1 - y, x) : key(y, N - 1 - x);
+    }));
+    const rotPt = (p) => dir > 0 ? { x: N - 1 - p.y, y: p.x } : { x: p.y, y: N - 1 - p.x };
+    S.terrain = rotSet(S.terrain);
+    S.cracks = rotSet(S.cracks);
+    S.blocks = rotSet(S.blocks);
+    if (S.portals) S.portals = S.portals.map(rotPt);
+    S.player = rotPt(S.player);
+    S.goal = rotPt(S.goal);
+    S.rot = (S.rot + (dir > 0 ? 1 : 3)) % 4;
+    boardWrap.style.transform = 'rotate(0deg)';
+    render();
+    void boardWrap.offsetWidth;
+    boardWrap.classList.remove('noanim');
+    animating = false;
+    startFalling(); // 新しい向きで落下を再開（着地できる）
+  }, 430);
+}
+
+function moveFree(dx, dy) { // 無重力：4方向に浮遊移動
+  if (gravMode !== 'zero' || S.done || animating) return;
+  bounceChain = 0;
+  const nx = S.player.x + dx, ny = S.player.y + dy;
+  if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+  if (solid(nx, ny)) return;
+  snapshot();
+  S.player.x = nx; S.player.y = ny;
+  if (dx !== 0) lastDx = dx;
+  maybeTeleport();
+  render();
+  checkGoal();
+  render();
+}
+
+function move(dx) {
+  if (gravMode === 'zero') { moveFree(dx, 0); return; }
+  if (S.done) return;
+  if (animating || falling || bouncing) { queuedDx = dx; return; } // 先行入力：着地したら自動で進む
+  if (S.rot === 0) return;
+  bounceChain = 0;
+  lastDx = dx;
+  const nx = S.player.x + dx;
+  if (nx < 0 || nx >= N) return;
+  if (solid(nx, S.player.y)) return;
+  snapshot();
+  const from = { ...S.player };
+  S.player.x = nx;
+  const supportKey = key(from.x, from.y + gravDir());
+  if (S.blocks.has(supportKey)) {
+    S.blocks.delete(supportKey);
+  }
+  maybeTeleport();
+  render();
+  startFalling();
+}
+
+function toggleGravity() {
+  if (S.done || animating || bouncing) return;
+  bounceChain = 0;
+  snapshot();
+  stopFalling();
+  gravMode = gravMode === 'down' ? 'up' : (gravMode === 'up' ? 'zero' : 'down');
+  render();
+  startFalling();
+}
+
+function reset() { stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
+function nextLevel() { if (levelIdx < LEVELS.length - 1) { levelIdx++; reset(); } }
+
+document.getElementById('rotL').addEventListener('click', () => rotate(-1));
+document.getElementById('rotR').addEventListener('click', () => rotate(1));
+document.getElementById('leftBtn').addEventListener('click', () => move(-1));
+document.getElementById('rightBtn').addEventListener('click', () => move(1));
+document.getElementById('upBtn').addEventListener('click', () => moveFree(0, -1));
+document.getElementById('downBtn').addEventListener('click', () => moveFree(0, 1));
+document.getElementById('retryBtn').addEventListener('click', reset);
+document.getElementById('stopBtn').addEventListener('click', () => { timeStopped = !timeStopped; render(); });
+document.getElementById('ffBtn').addEventListener('click', () => { fastFall = !fastFall; render(); });
+document.getElementById('rewindBtn').addEventListener('click', rewind);
+document.getElementById('gravBtn').addEventListener('click', toggleGravity);
+nextBtn.addEventListener('click', nextLevel);
+document.getElementById('titleBtn').addEventListener('click', showTitle);
+document.getElementById('muteBtn').addEventListener('click', () => { bgmMuted = !bgmMuted; if (bgmMuted) bgmStop(); else bgmStart(); updateMuteBtn(); });
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); rotate(1); }
+  if (e.key === 'ArrowRight') move(1);
+  if (e.key === 'ArrowLeft') move(-1);
+  if (e.key === 'ArrowUp') { e.preventDefault(); moveFree(0, -1); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveFree(0, 1); }
+  if (e.key === 'q' || e.key === 'Q') rotate(-1);
+  if (e.key === 'r' || e.key === 'R') reset();
+  if (e.key === 't' || e.key === 'T') { timeStopped = !timeStopped; render(); }
+  if (e.key === 'f' || e.key === 'F') { fastFall = !fastFall; render(); }
+  if (e.key === 'z' || e.key === 'Z') rewind();
+  if (e.key === 'g' || e.key === 'G') toggleGravity();
+});
+
+buildDom();
+levelIdx = continueIdx();
+reset();
+showTitle();
+</script>
+</body>
+</html>
