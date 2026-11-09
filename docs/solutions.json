@@ -2,119 +2,251 @@
   {
     "level": 1,
     "solution": [
-      "rotate(-1)",
-      "rotate(-1)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
       "rotate(1)",
-      "move(-1)",
-      "toggleGravity()"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)"
     ],
-    "states": 157
+    "counts": [
+      4
+    ],
+    "states": 74,
+    "exhausted": false,
+    "noBlockStates": 15
   },
   {
     "level": 2,
     "solution": [
-      "rotate(1)",
-      "rotate(1)",
-      "rotate(1)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "rotate(-1)",
+      "move(-1)",
+      "move(-1)",
+      "move(-1)",
       "move(-1)",
       "move(-1)"
     ],
-    "states": 119
+    "counts": [
+      3
+    ],
+    "states": 58,
+    "exhausted": false,
+    "noBlockStates": 15
   },
   {
     "level": 3,
     "solution": [
-      "rotate(-1)",
-      "rotate(-1)",
+      "onCellTap(3,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
       "rotate(1)",
-      "move(-1)",
-      "toggleGravity()"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)"
     ],
-    "states": 157
+    "counts": [
+      0,
+      1,
+      4
+    ],
+    "states": 712,
+    "exhausted": false,
+    "noBlockStates": 15
   },
   {
     "level": 4,
     "solution": [
-      "toggleGravity()"
+      "onCellTap(2,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "rotate(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)"
     ],
-    "states": 3
+    "counts": [
+      1,
+      4
+    ],
+    "states": 176,
+    "exhausted": false,
+    "noBlockStates": 9
   },
   {
     "level": 5,
     "solution": [
-      "rotate(-1)",
-      "rotate(-1)",
+      "onCellTap(3,0)",
+      "onCellTap(3,0)",
+      "onCellTap(3,0)",
+      "onCellTap(3,0)",
       "rotate(1)",
-      "move(-1)",
-      "toggleGravity()"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "toggleFast()",
+      "move(1)"
     ],
-    "states": 169
+    "counts": [
+      4
+    ],
+    "states": 137,
+    "exhausted": false,
+    "noBlockStates": 30
   },
   {
     "level": 6,
     "solution": [
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
       "rotate(1)",
       "move(1)",
-      "toggleGravity()",
-      "move(1)"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "toggleGravity()"
     ],
-    "states": 46
+    "counts": [
+      4
+    ],
+    "states": 232,
+    "exhausted": false,
+    "noBlockStates": 23
   },
   {
     "level": 7,
     "solution": [
-      "rotate(-1)",
-      "rotate(-1)",
+      "onCellTap(2,0)",
+      "onCellTap(2,0)",
+      "onCellTap(2,0)",
+      "onCellTap(2,0)",
       "rotate(1)",
-      "move(-1)",
-      "toggleGravity()"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)"
     ],
-    "states": 165
+    "counts": [
+      4
+    ],
+    "states": 67,
+    "exhausted": false,
+    "noBlockStates": 17
   },
   {
     "level": 8,
     "solution": [
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
       "rotate(1)",
+      "move(1)",
       "move(1)"
     ],
-    "states": 4
+    "counts": [
+      5
+    ],
+    "states": 50,
+    "exhausted": false,
+    "noBlockStates": 15
   },
   {
     "level": 9,
     "solution": [
+      "onCellTap(2,0)",
+      "rotate(1)",
+      "move(1)",
       "toggleGravity()",
-      "rotate(-1)",
+      "move(-1)",
+      "moveFree(0,1)",
+      "moveFree(0,1)",
+      "move(1)",
       "move(1)"
     ],
-    "states": 57
+    "counts": [
+      1
+    ],
+    "states": 65,
+    "exhausted": false,
+    "noBlockStates": 1
   },
   {
     "level": 10,
     "solution": [
-      "rotate(1)"
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "rotate(1)",
+      "move(1)",
+      "move(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "move(1)"
     ],
-    "states": 0
+    "counts": [
+      4
+    ],
+    "states": 238,
+    "exhausted": false,
+    "noBlockStates": 42
   },
   {
     "level": 11,
     "solution": [
-      "rotate(-1)",
-      "rotate(-1)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
+      "onCellTap(4,0)",
       "rotate(1)",
-      "move(-1)",
-      "toggleGravity()"
+      "move(1)",
+      "move(1)",
+      "move(1)",
+      "move(1)"
     ],
-    "states": 157
+    "counts": [
+      4
+    ],
+    "states": 62,
+    "exhausted": false,
+    "noBlockStates": 15
   },
   {
     "level": 12,
     "solution": [
+      "onCellTap(2,0)",
+      "onCellTap(2,0)",
+      "onCellTap(2,0)",
       "rotate(1)",
       "move(1)",
-      "toggleGravity()",
       "move(1)",
-      "move(1)"
+      "move(1)",
+      "move(1)",
+      "toggleGravity()"
     ],
-    "states": 113
+    "counts": [
+      3
+    ],
+    "states": 17,
+    "exhausted": false,
+    "noBlockStates": 1
   }
 ]
