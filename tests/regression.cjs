@@ -84,3 +84,29 @@ test('reset after the final clear cannot reopen a stale completion overlay',()=>
   const h=harness();h.run("startLevel(11);S.done=true;S.result='クリア！';onCleared();reset()");h.flush();
   assert.equal(h.nodes.get('overlay').style.display,'none');
 });
+
+test('title navigation after final clear cancels the completion overlay',()=>{
+  const h=harness();h.run('startLevel(11)');
+  for(const action of require('../docs/solutions.json')[11].solution){h.run(action);if(action!== 'toggleGravity()')h.flush()}
+  // Drain the fall, but leave the delayed final overlay pending.
+  while(h.run('!S.done'))h.flush(1);
+  h.run('showTitle()');const title=h.nodes.get('overlayCard').innerHTML;h.flush();
+  assert.equal(h.nodes.get('overlayCard').innerHTML,title);assert.match(title,/レベルをえらぶ/);
+});
+test('legacy v1 progress preserves cleared flags, unlocks and continue destination',()=>{
+  for(const [unlocked,count,next] of [[1,0,0],[9,8,8],[12,12,11]]){
+    const raw=JSON.stringify({unlocked,cleared:Array(count).fill(true)});const h=harness(raw);
+    assert.equal(h.run('SAVE_KEY'),'tokeijima-shift-progress-v1');
+    assert.equal(h.run('progress.unlocked'),unlocked);assert.equal(h.run('progress.cleared.filter(Boolean).length'),count);
+    assert.equal(h.run('continueIdx()'),next);h.run('startLevel(continueIdx())');assert.equal(h.run('levelIdx'),next);
+    h.run('saveProgress()');assert.deepEqual(JSON.parse(h.storage.value),JSON.parse(raw));
+  }
+});
+
+test('rewind after final clear cannot show all-clear over a later failure',()=>{
+  const h=harness();h.run('startLevel(11)');
+  for(const action of require('../docs/solutions.json')[11].solution){h.run(action);if(action!=='toggleGravity()')h.flush()}
+  while(h.run('!S.done'))h.flush(1);
+  h.run('rewind();fail()');h.flush();
+  assert.equal(h.run('S.result'),'おちた');assert.equal(h.nodes.get('overlay').style.display,'none');
+});

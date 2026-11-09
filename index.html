@@ -154,7 +154,7 @@ function box() {
 }
 // Coordinates are zero-based. Stacks become horizontal, single-use walkways after SHIFT.
 const LEVELS = [
-  { name:'はじめての足場', hint:'光る井戸に箱を積む。高さが、回転後の道の長さになる。',
+  { name:'はじめての足場', hint:'光る井戸をタップして箱を積む。高さが、回転後の道の長さになる。',
     terrain:tub(false), stones:new Set(), wells:[4], blockCount:4, wellCap:4,
     start:{x:1,y:5}, goal:{x:5,y:0}, shifts:1, tools:[] },
   { name:'逆向きの階段', hint:'今度は左回り。茶色い石も、足場の一部として使える。',
@@ -189,7 +189,7 @@ const LEVELS = [
   { name:'渦への階段', hint:'足場をつないで紫の渦へ。出口の旗まで一気に渡れる。',
     terrain:tub(false,key(3,0)), stones:new Set([key(3,0)]), portals:[{x:5,y:1},{x:2,y:0}],
     wells:[4], blockCount:4, wellCap:4, start:{x:1,y:5}, goal:{x:2,y:0}, shifts:1, tools:['warp'] },
-  { name:'時計島の帰り道', hint:'石と箱で渦への橋を。囲まれた出口では、重力を反転しよう。',
+  { name:'時計島の帰り道', hint:'石と箱で足場を作る。重力を反転して渦へ昇り、出口でもそのまま上へ。',
     terrain:(()=>{const t=tub(false);for(let y=0;y<6;y++)t.delete(key(0,y));t.delete(key(6,5));
       for(const p of ['3,2','4,3','5,3','4,1','5,1'])t.add(p);return t})(),
     stones:new Set(['3,2','4,3','5,3','4,1','5,1']), portals:[{x:1,y:1},{x:5,y:2}],
@@ -340,6 +340,8 @@ function continueIdx() {
   return LEVELS.length - 1;
 }
 let started = false;
+let completionTimer = null;
+function cancelCompletion() { if (completionTimer !== null) clearTimeout(completionTimer); completionTimer = null; }
 function startLevel(idx) {
   started = true;
   levelIdx = idx;
@@ -350,10 +352,11 @@ function onCleared() {
   progress.cleared[levelIdx] = true;
   progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2));
   saveProgress();
-  if (levelIdx === LEVELS.length - 1) { const completedState = S; setTimeout(() => { if (S === completedState && S.done) showAllClear(); }, 1100); }
+  if (levelIdx === LEVELS.length - 1) { const completedState = S; cancelCompletion(); completionTimer = setTimeout(() => { completionTimer = null; if (S === completedState && S.done && S.result === 'クリア！') showAllClear(); }, 1100); }
 }
 function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
 function showTitle() {
+  cancelCompletion();
   const card = document.getElementById('overlayCard');
   const clearedCount = progress.cleared.filter(Boolean).length;
   let grid = '';
@@ -422,6 +425,7 @@ function rewind() {
   queuedDx = 0; bouncing = false;
   const snap = history.pop();
   if (!snap) return;
+  cancelCompletion();
   bounceChain = 0;
   stopFalling();
   timeStopped = false;
@@ -743,7 +747,7 @@ function toggleGravity() {
 function toggleTime() { if (!hasTool('stop') || S.done || animating) return; timeStopped = !timeStopped; render(); }
 function toggleFast() { if (!hasTool('fast') || S.done || animating) return; fastFall = !fastFall; render(); }
 
-function reset() { cancelRotation(); stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
+function reset() { cancelCompletion(); cancelRotation(); stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
 function nextLevel() { if (levelIdx < LEVELS.length - 1) { levelIdx++; reset(); } }
 
 document.getElementById('rotL').addEventListener('click', () => rotate(-1));
