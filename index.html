@@ -19,6 +19,7 @@
   #phase b { color: #e8b93e; }
   #phase.walk b { color: #7fd4ff; }
   button:disabled { opacity: .3; }
+  [hidden] { display: none !important; }
   .well { animation: wellPulse 1.2s ease-in-out infinite; }
   @keyframes wellPulse { 0%,100% { outline-color: #8a7f5c; } 50% { outline-color: #e8b93e; } }
   #boardWrap { transition: transform .42s cubic-bezier(.3,.7,.3,1); }
@@ -44,7 +45,7 @@
   #player::after { content: ""; position: absolute; left: 50%; top: 34%; width: 16%; height: 16%; margin-left: 6%; background: #123; border-radius: 50%; }
   .walk #player { background: linear-gradient(180deg, #6fe0ff, #2b9fd8); }
   #player.animFall { transition: transform .3s ease-in; }
-  #blocksLeft { font-size: 20px; letter-spacing: .3em; height: 24px; }
+  #blocksLeft { font-size: 16px; letter-spacing: .06em; height: 24px; }
   #controls { display: flex; flex-direction: column; gap: 8px; align-items: center; }
   #controlsMain, #controlsSub { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   #controlsSub { gap: 8px; }
@@ -151,74 +152,50 @@ function box() {
   for (let y = 1; y < 6; y++) { t.add(key(0, y)); t.add(key(6, y)); }
   return t;
 }
+// Coordinates are zero-based. Stacks become horizontal, single-use walkways after SHIFT.
 const LEVELS = [
-  { // 1面：時計回り。井戸2に2個＋井戸4に4個
-    terrain: tub(false, null), stones: new Set(),
-    wells: [2, 4], blockCount: 6, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
-  },
-  { // 2面：反時計回り（鏡像）。石（地形）が1個混ざり、井戸2は実質3個で届く
-    terrain: tub(true, key(2, 2)), stones: new Set([key(2, 2)]),
-    wells: [2, 4], blockCount: 5, wellCap: 4,
-    start: { x: 5, y: 5 }, goal: { x: 1, y: 0 },
-  },
-  { // 3面：井戸3本。真ん中は使わなくても解ける（配分がパズル）
-    terrain: tub(false, null), stones: new Set(),
-    wells: [2, 3, 4], blockCount: 6, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
-  },
-  { // 4面：箱の中。回転2回（180度）でゴールが降りてくる
-    terrain: box(), stones: new Set(),
-    wells: [3], blockCount: 3, wellCap: 3,
-    start: { x: 1, y: 5 }, goal: { x: 1, y: 1 },
-  },
-  { // 5面：ヒビ床。普通に落ちると上に乗るだけ。⚡早送りで勢いをつけて割り抜けると、その先がゴール
-    terrain: (() => { const t = tub(false, null); t.delete(key(6, 0)); t.add(key(5, 1)); return t; })(),
-    stones: new Set(), cracks: new Set([key(5, 1)]),
-    wells: [3], blockCount: 4, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 5, y: 1 },
-  },
-  { // 6面：上昇。床まで渡ってから重力を反転すると、ゴールまで昇っていける
-    terrain: tub(false, null), stones: new Set(),
-    wells: [2, 4], blockCount: 6, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 1, y: 1 },
-  },
-  { // 7面：バウンド。長く落ちて着地すると、進んでいた向きに跳ね返って高いゴールに届く
-    terrain: (() => { const t = new Set(); for (let x = 0; x < N; x++) t.add(key(x, 6)); for (let y = 0; y < 6; y++) t.add(key(0, y)); for (const y of [0, 1, 3, 4, 5]) t.add(key(6, y)); t.add(key(3, 0)); return t; })(),
-    stones: new Set([key(3, 0)]),
-    wells: [2], blockCount: 4, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 4, y: 0 },
-  },
-  { // 8面：風。落下中に右へ流され続けて、遠くのゴールに運ばれる
-    terrain: (() => { const t = new Set(); for (let x = 0; x < N; x++) t.add(key(x, 6)); for (let y = 0; y < 6; y++) t.add(key(0, y)); for (const y of [0, 1, 5]) t.add(key(6, y)); return t; })(),
-    stones: new Set(), wind: 1,
-    wells: [2], blockCount: 3, wellCap: 3,
-    start: { x: 1, y: 5 }, goal: { x: 5, y: 0 },
-  },
-  { // 9面：無重力。重力を3段階に切り替え（下→上→無）、浮いて柱を越える
-    terrain: (() => { const t = box(); for (const y of [2, 3, 4, 5]) t.add(key(3, y)); return t; })(),
-    stones: new Set(),
-    wells: [], blockCount: 0, wellCap: 0,
-    start: { x: 1, y: 5 }, goal: { x: 5, y: 2 },
-  },
-  { // 10面：残像。回転した瞬間、元の場所に残像が残って足場になる
-    terrain: tub(false, null), stones: new Set(),
-    wells: [], blockCount: 0, wellCap: 0,
-    start: { x: 1, y: 5 }, goal: { x: 4, y: 5 },
-  },
-  { // 11面：ワープ。紫の渦に入ると、対の渦へ瞬間移動する（出口がそのままゴール）
-    terrain: tub(false, key(3, 0)), stones: new Set([key(3, 0)]),
-    portals: [{ x: 5, y: 1 }, { x: 2, y: 0 }],
-    wells: [2, 4], blockCount: 6, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 2, y: 0 },
-  },
-  { // 12面：ワープ＋逆重力。ワープの着地点から重力を反転して昇るとゴール
-    terrain: tub(false, key(3, 0)), stones: new Set([key(3, 0)]),
-    portals: [{ x: 5, y: 1 }, { x: 2, y: 0 }],
-    wells: [2, 4], blockCount: 6, wellCap: 4,
-    start: { x: 1, y: 5 }, goal: { x: 1, y: 0 },
-  },
+  { name:'はじめての足場', hint:'光る井戸をタップして箱を積む。高さが、回転後の道の長さになる。',
+    terrain:tub(false), stones:new Set(), wells:[4], blockCount:4, wellCap:4,
+    start:{x:1,y:5}, goal:{x:5,y:0}, shifts:1, tools:[] },
+  { name:'逆向きの階段', hint:'今度は左回り。茶色い石も、足場の一部として使える。',
+    terrain:tub(true,key(2,2)), stones:new Set([key(2,2)]), wells:[4], blockCount:3, wellCap:3,
+    start:{x:5,y:5}, goal:{x:1,y:0}, shifts:1, tools:[] },
+  { name:'箱を分ける', hint:'一つの長い道だけでは石にぶつかる。別の井戸にも足場を。',
+    terrain:tub(false,key(3,4)), stones:new Set([key(3,4)]), wells:[2,3,4], blockCount:5, wellCap:4,
+    start:{x:1,y:5}, goal:{x:5,y:0}, shifts:1, tools:[] },
+  { name:'試して、巻き戻す', hint:'二つの高さをつなごう。↩で戻せる。⏸は落下を観察するために。',
+    terrain:(()=>{const t=tub(false,key(3,4));t.add(key(1,2));return t})(), stones:new Set([key(3,4),key(1,2)]),
+    wells:[2,4], blockCount:5, wellCap:4, start:{x:1,y:5}, goal:{x:5,y:0}, shifts:1, tools:['stop'] },
+  { name:'勢いで割る', hint:'⚡を入れてから落ちよう。短い落下でもヒビ床を割れる。',
+    terrain:(()=>{const t=tub(false);t.delete(key(6,0));t.add(key(5,1));return t})(),
+    stones:new Set(), cracks:new Set([key(5,1)]), wells:[3], blockCount:4, wellCap:4,
+    start:{x:1,y:5}, goal:{x:5,y:1}, shifts:1, tools:['fast'] },
+  { name:'天井への道', hint:'橋を渡って着地したら重力を反転。石の下に旗がある。',
+    terrain:tub(false,key(1,1)), stones:new Set([key(1,1)]), wells:[4], blockCount:4, wellCap:4,
+    start:{x:1,y:5}, goal:{x:2,y:1}, shifts:1, tools:['reverse'] },
+  { name:'はずむ足場', hint:'高い道の端から右へ。長く落ちると、進む向きへ跳ねる。',
+    terrain:(()=>{const t=tub(false,key(3,0));t.add(key(6,3));return t})(), stones:new Set([key(3,0)]),
+    wells:[2], blockCount:4, wellCap:4, start:{x:1,y:5}, goal:{x:4,y:0}, shifts:1, tools:['bounce'] },
+  { name:'風の渡し場', hint:'風は落下ごとに右へ一歩。石を越えた先に長い足場を作ろう。',
+    terrain:tub(false,key(3,4)), stones:new Set([key(3,4)]), wind:1,
+    wells:[4], blockCount:5, wellCap:5, start:{x:1,y:5}, goal:{x:3,y:1}, shifts:1, tools:['wind'] },
+  { name:'浮遊の発射台', hint:'まず箱に着地。そこから無重力にして、柱の横を回り込もう。',
+    terrain:(()=>{const t=box();for(const y of [2,3,4])t.add(key(3,y));t.delete(key(0,5));t.delete(key(6,5));return t})(),
+    stones:new Set(), wells:[2], blockCount:1, wellCap:1,
+    start:{x:1,y:5}, goal:{x:4,y:3}, shifts:1, tools:['zero'] },
+  { name:'自分を足場に', hint:'ここは2回転。箱は離れると消え、回転前の自分は残像になる。',
+    terrain:tub(false), stones:new Set(), wells:[4], blockCount:4, wellCap:4,
+    start:{x:1,y:5}, goal:{x:4,y:3}, shifts:2, tools:['ghost'] },
+  { name:'渦への階段', hint:'足場をつないで紫の渦へ。出口の旗まで一気に渡れる。',
+    terrain:tub(false,key(3,0)), stones:new Set([key(3,0)]), portals:[{x:5,y:1},{x:2,y:0}],
+    wells:[4], blockCount:4, wellCap:4, start:{x:1,y:5}, goal:{x:2,y:0}, shifts:1, tools:['warp'] },
+  { name:'時計島の帰り道', hint:'石と箱で足場を作る。重力を反転して渦へ昇り、出口でもそのまま上へ。',
+    terrain:(()=>{const t=tub(false);for(let y=0;y<6;y++)t.delete(key(0,y));t.delete(key(6,5));
+      for(const p of ['3,2','4,3','5,3','4,1','5,1'])t.add(p);return t})(),
+    stones:new Set(['3,2','4,3','5,3','4,1','5,1']), portals:[{x:1,y:1},{x:5,y:2}],
+    wells:[2], blockCount:3, wellCap:3, start:{x:1,y:5}, goal:{x:4,y:2}, shifts:1, tools:['warp','reverse'] },
 ];
+const hasTool = tool => LEVELS[levelIdx].tools.includes(tool);
 // =================================================
 
 let levelIdx = 0;
@@ -363,6 +340,8 @@ function continueIdx() {
   return LEVELS.length - 1;
 }
 let started = false;
+let completionTimer = null;
+function cancelCompletion() { if (completionTimer !== null) clearTimeout(completionTimer); completionTimer = null; }
 function startLevel(idx) {
   started = true;
   levelIdx = idx;
@@ -373,20 +352,21 @@ function onCleared() {
   progress.cleared[levelIdx] = true;
   progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2));
   saveProgress();
-  if (levelIdx === LEVELS.length - 1) setTimeout(showAllClear, 1100);
+  if (levelIdx === LEVELS.length - 1) { const completedState = S; cancelCompletion(); completionTimer = setTimeout(() => { completionTimer = null; if (S === completedState && S.done && S.result === 'クリア！') showAllClear(); }, 1100); }
 }
 function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
 function showTitle() {
+  cancelCompletion();
   const card = document.getElementById('overlayCard');
   const clearedCount = progress.cleared.filter(Boolean).length;
   let grid = '';
   for (let i = 0; i < LEVELS.length; i++) {
     const locked = i >= progress.unlocked;
-    grid += `<button class="lvBtn${progress.cleared[i] ? ' cleared' : ''}" data-lv="${i}" ${locked ? 'disabled' : ''}>${i + 1}${progress.cleared[i] ? ' ✓' : ''}</button>`;
+    grid += `<button class="lvBtn${progress.cleared[i] ? ' cleared' : ''}" data-lv="${i}" title="${LEVELS[i].name}" ${locked ? 'disabled' : ''}>${i + 1}${progress.cleared[i] ? ' ✓' : ''}</button>`;
   }
   card.innerHTML = `
     <div class="ovTitle">時計島のシフト</div>
-    <div class="ovSub">SHIFTで世界を回して、ゴールの旗へ。</div>
+    <div class="ovSub">箱を積み、限られたSHIFTで旗への道を作ろう。<br>使える現象は島ごとに変わります。↩で何度でも試せます。</div>
     <button id="startBtn">${clearedCount === 0 ? 'はじめる' : 'つづきから（' + (continueIdx() + 1) + '面）'}</button>
     <div class="ovLabel">レベルをえらぶ（クリア ${clearedCount} / ${LEVELS.length}）</div>
     <div class="lvGrid">${grid}</div>
@@ -414,9 +394,9 @@ function showAllClear() {
 function initialState(idx) {
   const L = LEVELS[idx];
   return {
-    rot: 0,
+    rot: 0, shiftsUsed: 0,
     terrain: new Set(L.terrain),
-    stones: L.stones,
+    stones: new Set(L.stones),
     cracks: new Set(L.cracks || []),
     blocks: new Set(),
     player: { ...L.start },
@@ -432,9 +412,9 @@ function initialState(idx) {
 
 function snapshot() {
   history.push({
-    terrain: [...S.terrain], cracks: [...S.cracks], blocks: [...S.blocks],
-    player: { ...S.player }, goal: { ...S.goal }, rot: S.rot, grav: gravMode,
-    ghost: S.ghost ? { ...S.ghost } : null,
+    terrain: [...S.terrain], stones: [...S.stones], fastFall, lastDx, cracks: [...S.cracks], blocks: [...S.blocks],
+    player: { ...S.player }, goal: { ...S.goal }, rot: S.rot, shiftsUsed: S.shiftsUsed, grav: gravMode,
+    ghost: S.ghost ? { ...S.ghost } : null, portalLock: S.portalLock,
     portals: S.portals ? S.portals.map(p => ({ ...p })) : null,
   });
   if (history.length > 80) history.shift();
@@ -445,22 +425,27 @@ function rewind() {
   queuedDx = 0; bouncing = false;
   const snap = history.pop();
   if (!snap) return;
+  cancelCompletion();
   bounceChain = 0;
   stopFalling();
   timeStopped = false;
   gravMode = snap.grav;
   S.ghost = snap.ghost;
   S.portals = snap.portals;
-  S.portalLock = false;
+  S.portalLock = snap.portalLock;
   S.terrain = new Set(snap.terrain);
+  S.stones = new Set(snap.stones);
+  fastFall = snap.fastFall; lastDx = snap.lastDx;
   S.cracks = new Set(snap.cracks);
   S.blocks = new Set(snap.blocks);
   S.player = snap.player;
   S.goal = snap.goal;
   S.rot = snap.rot;
+  S.shiftsUsed = snap.shiftsUsed;
   S.done = false;
   S.result = '';
   render();
+  if (S.shiftsUsed > 0 && !supported() && gravMode !== 'zero') startFalling();
 }
 
 function buildDom() {
@@ -540,7 +525,7 @@ function startFalling() {
         fallTimer = setTimeout(step, interval());
         return;
       }
-      if (fallMomentum >= 3 && lastDx !== 0 && bounceChain < 3) {
+      if (hasTool('bounce') && fallMomentum >= 3 && lastDx !== 0 && bounceChain < 3) {
         // バウンド：勢いを残して、進んでいた向きへ斜めに跳ね返る
         // v15: 連鎖上限3回。ワープ等と組み合わさった無限バウンドを防ぐ
         falling = false;
@@ -597,34 +582,40 @@ function render() {
         + (S.terrain.has(key(x, y)) ? (S.cracks.has(key(x, y)) ? ' crack' : (S.stones.has(key(x, y)) ? ' stone' : ' terrain')) : '')
         + (S.blocks.has(key(x, y)) ? ' block' : '')
         + (S.goal.x === x && S.goal.y === y ? ' goal' : '')
-        + (S.rot === 0 && L.wells.includes(x) && !S.terrain.has(key(x, y)) ? ' well' : '');
+        + (S.shiftsUsed === 0 && L.wells.includes(x) && !S.terrain.has(key(x, y)) ? ' well' : '');
     }
   }
+  ghostEl.remove(); portalEls.forEach(el => el.remove());
   if (S.ghost) cellAt(S.ghost.x, S.ghost.y).appendChild(ghostEl);
   if (S.portals) S.portals.forEach((p, i) => cellAt(p.x, p.y).appendChild(portalEls[i]));
   cellAt(S.player.x, S.player.y).appendChild(playerEl);
   playerEl.style.transform = gravMode === 'up' ? 'scaleY(-1)' : '';
-  document.body.classList.toggle('walk', S.rot !== 0);
+  document.body.classList.toggle('walk', S.shiftsUsed > 0);
   document.body.classList.toggle('gravup', gravMode === 'up');
   document.body.classList.toggle('zeroG', gravMode === 'zero');
   document.getElementById('gravBtn').textContent = gravMode === 'up' ? '重力 ↑' : (gravMode === 'zero' ? '無重力' : '重力 ↓');
-  phaseEl.className = S.rot === 0 ? '' : 'walk';
-  phaseEl.innerHTML = S.done ? '' : (S.rot === 0
-    ? `<b>つくる</b>（${levelIdx + 1}面）：井戸タップで積む → SHIFTで回転`
-    : `<b>わたる</b>：◀▶で進む ／ SHIFTで再回転（落下中もOK）・ ${S.rot * 90}°`) + (S.wind !== 0 ? ` ／ 風 ${S.wind > 0 ? '→' : '←'}` : '') + (gravMode === 'zero' ? ' ／ 無重力：▲▼◀▶で浮遊' : '');
-  document.getElementById('leftBtn').disabled = (S.rot === 0 && gravMode !== 'zero') || S.done;
-  document.getElementById('rightBtn').disabled = (S.rot === 0 && gravMode !== 'zero') || S.done;
+  phaseEl.className = S.shiftsUsed === 0 ? '' : 'walk';
+  phaseEl.innerHTML = `<b>${levelIdx + 1}面：${L.name}</b><br>` + (S.done ? L.hint :
+    S.shiftsUsed === 0 ? L.hint : `◀▶で進む・箱は離れると消える` +
+    (hasTool('reverse') ? ' ／ 着地して重力反転' : '') +
+    (hasTool('zero') ? ' ／ 着地して無重力：▲▼◀▶' : '') +
+    (S.wind ? ' ／ 風 →' : ''));
+  document.getElementById('leftBtn').disabled = (S.shiftsUsed === 0 && gravMode !== 'zero') || S.done;
+  document.getElementById('rightBtn').disabled = (S.shiftsUsed === 0 && gravMode !== 'zero') || S.done;
   document.getElementById('upBtn').disabled = gravMode !== 'zero' || S.done;
   document.getElementById('downBtn').disabled = gravMode !== 'zero' || S.done;
-  document.getElementById('rotL').disabled = S.done;
-  document.getElementById('rotR').disabled = S.done;
+  document.getElementById('rotL').disabled = S.done || S.shiftsUsed >= L.shifts;
+  document.getElementById('rotR').disabled = S.done || S.shiftsUsed >= L.shifts;
   document.body.classList.toggle('stopped', timeStopped);
   document.getElementById('stopBtn').classList.toggle('on', timeStopped);
   document.getElementById('stopBtn').textContent = timeStopped ? '▶' : '⏸';
   document.getElementById('ffBtn').classList.toggle('on', fastFall);
+  for (const [id, available] of [['stopBtn', hasTool('stop')], ['ffBtn', hasTool('fast')], ['gravBtn', hasTool('reverse') || hasTool('zero')]]) { document.getElementById(id).hidden = !available; document.getElementById(id).disabled = !available || S.done; }
+  document.getElementById('gravBtn').disabled = S.done || S.shiftsUsed === 0 || falling || animating || bouncing;
+  document.getElementById('gravBtn').title = hasTool('zero') ? '着地中に無重力を切り替え（G）' : '着地中に重力反転（G）';
   document.getElementById('rewindBtn').disabled = history.length === 0;
   const left = L.blockCount - S.blocks.size;
-  blocksLeftEl.textContent = S.rot === 0 ? '■'.repeat(left) + '□'.repeat(L.blockCount - left) : '';
+  blocksLeftEl.textContent = (S.shiftsUsed === 0 ? '箱 ' + '■'.repeat(left) + '□'.repeat(L.blockCount - left) + ' ／ ' : '') + '回転 あと' + (L.shifts - S.shiftsUsed) + '回';
   msgEl.textContent = S.result;
   msgEl.className = S.result === 'クリア！' ? 'clear' : (S.result ? 'fail' : '');
   nextBtn.style.display = (S.done && S.result === 'クリア！' && levelIdx < LEVELS.length - 1) ? 'block' : 'none';
@@ -654,7 +645,7 @@ function checkGoal() {
 }
 
 function onCellTap(x, y) {
-  if (S.rot !== 0 || S.done) return;
+  if (S.shiftsUsed !== 0 || S.done || animating || falling || bouncing) return;
   const L = LEVELS[levelIdx];
   if (!L.wells.includes(x)) return;
   const stack = [];
@@ -672,11 +663,12 @@ function onCellTap(x, y) {
 }
 
 function rotate(dir) {
-  if (S.done || animating || bouncing) return;
+  if (S.done || animating || bouncing || S.shiftsUsed >= LEVELS[levelIdx].shifts) return;
   bounceChain = 0;
   seRotate();
   snapshot();
-  S.ghost = { ...S.player }; // 残像：回転前の自分の場所が足場として残る（画面固定）
+  S.shiftsUsed++;
+  S.ghost = hasTool('ghost') ? { ...S.player } : null; // 残像：回転前の自分の場所が足場として残る（画面固定）
   stopFalling(); // 落下中でも割り込んで回せる
   animating = true;
   boardWrap.style.transform = `rotate(${dir * 90}deg)`;
@@ -689,6 +681,7 @@ function rotate(dir) {
     }));
     const rotPt = (p) => dir > 0 ? { x: N - 1 - p.y, y: p.x } : { x: p.y, y: N - 1 - p.x };
     S.terrain = rotSet(S.terrain);
+    S.stones = rotSet(S.stones);
     S.cracks = rotSet(S.cracks);
     S.blocks = rotSet(S.blocks);
     if (S.portals) S.portals = S.portals.map(rotPt);
@@ -705,7 +698,7 @@ function rotate(dir) {
 }
 
 function moveFree(dx, dy) { // 無重力：4方向に浮遊移動
-  if (gravMode !== 'zero' || S.done || animating) return;
+  if (!hasTool('zero') || gravMode !== 'zero' || S.done || animating) return;
   bounceChain = 0;
   const nx = S.player.x + dx, ny = S.player.y + dy;
   if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
@@ -723,13 +716,13 @@ function move(dx) {
   if (gravMode === 'zero') { moveFree(dx, 0); return; }
   if (S.done) return;
   if (animating || falling || bouncing) { queuedDx = dx; return; } // 先行入力：着地したら自動で進む
-  if (S.rot === 0) return;
+  if (S.shiftsUsed === 0) return;
   bounceChain = 0;
-  lastDx = dx;
   const nx = S.player.x + dx;
   if (nx < 0 || nx >= N) return;
   if (solid(nx, S.player.y)) return;
   snapshot();
+  lastDx = dx;
   const from = { ...S.player };
   S.player.x = nx;
   const supportKey = key(from.x, from.y + gravDir());
@@ -742,16 +735,19 @@ function move(dx) {
 }
 
 function toggleGravity() {
-  if (S.done || animating || bouncing) return;
+  if ((!hasTool('reverse') && !hasTool('zero')) || S.shiftsUsed === 0 || S.done || animating || falling || bouncing) return;
   bounceChain = 0;
   snapshot();
   stopFalling();
-  gravMode = gravMode === 'down' ? 'up' : (gravMode === 'up' ? 'zero' : 'down');
+  gravMode = gravMode === 'down' ? (hasTool('zero') ? 'zero' : 'up') : 'down';
   render();
   startFalling();
 }
 
-function reset() { cancelRotation(); stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
+function toggleTime() { if (!hasTool('stop') || S.done || animating) return; timeStopped = !timeStopped; render(); }
+function toggleFast() { if (!hasTool('fast') || S.done || animating) return; fastFall = !fastFall; render(); }
+
+function reset() { cancelCompletion(); cancelRotation(); stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
 function nextLevel() { if (levelIdx < LEVELS.length - 1) { levelIdx++; reset(); } }
 
 document.getElementById('rotL').addEventListener('click', () => rotate(-1));
@@ -761,8 +757,8 @@ document.getElementById('rightBtn').addEventListener('click', () => move(1));
 document.getElementById('upBtn').addEventListener('click', () => moveFree(0, -1));
 document.getElementById('downBtn').addEventListener('click', () => moveFree(0, 1));
 document.getElementById('retryBtn').addEventListener('click', reset);
-document.getElementById('stopBtn').addEventListener('click', () => { timeStopped = !timeStopped; render(); });
-document.getElementById('ffBtn').addEventListener('click', () => { fastFall = !fastFall; render(); });
+document.getElementById('stopBtn').addEventListener('click', toggleTime);
+document.getElementById('ffBtn').addEventListener('click', toggleFast);
 document.getElementById('rewindBtn').addEventListener('click', rewind);
 document.getElementById('gravBtn').addEventListener('click', toggleGravity);
 nextBtn.addEventListener('click', nextLevel);
@@ -777,8 +773,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown') { e.preventDefault(); moveFree(0, 1); }
   if (e.key === 'q' || e.key === 'Q') rotate(-1);
   if (e.key === 'r' || e.key === 'R') reset();
-  if (e.key === 't' || e.key === 'T') { timeStopped = !timeStopped; render(); }
-  if (e.key === 'f' || e.key === 'F') { fastFall = !fastFall; render(); }
+  if (e.key === 't' || e.key === 'T') toggleTime();
+  if (e.key === 'f' || e.key === 'F') toggleFast();
   if (e.key === 'z' || e.key === 'Z') rewind();
   if (e.key === 'g' || e.key === 'G') toggleGravity();
 });
