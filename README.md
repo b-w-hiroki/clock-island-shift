@@ -62,3 +62,8 @@ GitHub Game Off 2026（テーマ：SHIFT）参加作品です。
 MIT License（[LICENSE](LICENSE) 参照）。
 
 制作：birdman studio（TORII, Hiroki）
+
+## 品質確認
+
+依存パッケージ不要の回帰テスト: `node --test tests/regression.cjs`（Node.js 22以上）。
+[検証結果と未確認事項](docs/QA-2026-11-09.md)には全12面の解法再生、割り込み操作、保存の確認と、実機・初見評価の残件を分けて記録しています。
