@@ -2,20 +2,20 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>時計島のシフト</title>
 <!-- v16: BGM追加（Web Audio合成ループ＋ミュート切替）、短い画面でのレイアウト詰め直し（出現ボタンで2段になっても収まる寸法に）。v15: タイトル画面/レベル選択/進行度保存/全クリア画面、Web Audio効果音、バウンド無限ループ対策（連鎖上限3回）。v15バックアップ: role-shift-prototype-v15-backup.html -->
 <style>
-  :root { --cell: min(12.5vw, 52px); }
+  :root { --cell: min(calc((100vw - 50px) / 7), 52px); }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { font-family: system-ui, sans-serif; background: linear-gradient(180deg, #0d2436 0%, #123950 55%, #1a4a5e 100%); color: #eef6f3; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; gap: 14px; padding: 16px; overflow: hidden; position: relative; }
+  body { font-family: system-ui, sans-serif; background: linear-gradient(180deg, #0d2436 0%, #123950 55%, #1a4a5e 100%); color: #eef6f3; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; gap: 14px; padding: 16px; overflow-x: hidden; position: relative; }
   #title { font-size: 17px; font-weight: 800; letter-spacing: .35em; color: #f2c86d; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
   .gear { position: fixed; color: #f2c86d; opacity: .08; pointer-events: none; z-index: 0; animation: gearSpin 40s linear infinite; }
   .gear.g1 { font-size: 300px; left: -90px; top: -70px; }
   .gear.g2 { font-size: 220px; right: -70px; bottom: -60px; animation-direction: reverse; }
   @keyframes gearSpin { to { transform: rotate(360deg); } }
   body > *:not(.gear) { z-index: 1; }
-  #phase { font-size: 15px; letter-spacing: .08em; opacity: .9; height: 22px; text-align: center; }
+  #phase { font-size: 15px; letter-spacing: .08em; opacity: .9; min-height: 22px; line-height: 1.6; max-width: 390px; text-align: center; }
   #phase b { color: #e8b93e; }
   #phase.walk b { color: #7fd4ff; }
   button:disabled { opacity: .3; }
@@ -85,10 +85,10 @@
   #muteBtn.off { opacity: .45; text-decoration: line-through; }
   /* v16: 背の低い画面では余白とマスを詰めて操作系を収める（出現ボタンでメイン行が2段になっても収まる寸法に） */
   @media (max-height: 700px) {
-    :root { --cell: min(12.5vw, 42px); }
+    :root { --cell: min(calc((100vw - 34px) / 7), 42px); }
     body { gap: 6px; padding: 8px; }
     #title { font-size: 15px; }
-    #phase { height: 18px; font-size: 13px; }
+    #phase { min-height: 18px; font-size: 13px; }
     #blocksLeft { height: 20px; font-size: 17px; }
     #controls { gap: 5px; }
     #controlsMain, #controlsSub { gap: 6px; }
@@ -96,6 +96,9 @@
     #controlsSub button { padding: 6px 10px; font-size: 13px; }
     #msg { height: 26px; font-size: 22px; }
   }
+  button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  button { min-height: 44px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -108,12 +111,12 @@
   <div id="msg"></div>
   <div id="controls">
     <div id="controlsMain">
-      <button id="rotL">⟲</button>
-      <button id="leftBtn">◀</button>
-      <button id="upBtn">▲</button>
-      <button id="downBtn">▼</button>
-      <button id="rightBtn">▶</button>
-      <button id="rotR">⟳</button>
+      <button id="rotL" aria-label="左に回転">⟲</button>
+      <button id="leftBtn" aria-label="左に進む">◀</button>
+      <button id="upBtn" aria-label="上へ浮遊">▲</button>
+      <button id="downBtn" aria-label="下へ浮遊">▼</button>
+      <button id="rightBtn" aria-label="右に進む">▶</button>
+      <button id="rotR" aria-label="右に回転">⟳</button>
       <button id="nextBtn">つぎの面 ▶</button>
     </div>
     <div id="controlsSub">
@@ -231,6 +234,12 @@ let playerEl = null;
 let ghostEl = null;
 let portalEls = [];
 let animating = false;
+let rotationTimer = null;
+function cancelRotation() {
+  if (rotationTimer !== null) clearTimeout(rotationTimer);
+  rotationTimer = null; animating = false;
+  boardWrap.style.transform = 'rotate(0deg)';
+}
 
 let history = [];
 let timeStopped = false;
@@ -345,7 +354,7 @@ try {
   const raw = localStorage.getItem(SAVE_KEY);
   if (raw) {
     const p = JSON.parse(raw);
-    if (p && p.unlocked >= 1) progress = { unlocked: Math.min(LEVELS.length, p.unlocked), cleared: Array.isArray(p.cleared) ? p.cleared : [] };
+    if (p && Number.isInteger(p.unlocked) && p.unlocked >= 1) progress = { unlocked: Math.min(LEVELS.length, p.unlocked), cleared: Array.isArray(p.cleared) ? p.cleared.slice(0, LEVELS.length).map(v => v === true) : [] };
   }
 } catch (e) { /* 保存できない環境ではメモリ上のみ */ }
 function saveProgress() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); } catch (e) {} }
@@ -432,6 +441,8 @@ function snapshot() {
 }
 
 function rewind() {
+  cancelRotation();
+  queuedDx = 0; bouncing = false;
   const snap = history.pop();
   if (!snap) return;
   bounceChain = 0;
@@ -669,7 +680,8 @@ function rotate(dir) {
   stopFalling(); // 落下中でも割り込んで回せる
   animating = true;
   boardWrap.style.transform = `rotate(${dir * 90}deg)`;
-  setTimeout(() => {
+  rotationTimer = setTimeout(() => {
+    rotationTimer = null;
     boardWrap.classList.add('noanim');
     const rotSet = (set) => new Set([...set].map(k => {
       const [x, y] = k.split(',').map(Number);
@@ -739,7 +751,7 @@ function toggleGravity() {
   startFalling();
 }
 
-function reset() { stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
+function reset() { cancelRotation(); stopFalling(); history = []; timeStopped = false; fastFall = false; gravMode = 'down'; lastDx = 0; queuedDx = 0; bouncing = false; bounceChain = 0; S = initialState(levelIdx); render(); }
 function nextLevel() { if (levelIdx < LEVELS.length - 1) { levelIdx++; reset(); } }
 
 document.getElementById('rotL').addEventListener('click', () => rotate(-1));
@@ -757,6 +769,7 @@ nextBtn.addEventListener('click', nextLevel);
 document.getElementById('titleBtn').addEventListener('click', showTitle);
 document.getElementById('muteBtn').addEventListener('click', () => { bgmMuted = !bgmMuted; if (bgmMuted) bgmStop(); else bgmStart(); updateMuteBtn(); });
 document.addEventListener('keydown', (e) => {
+  if (document.getElementById('overlay').style.display !== 'none') return;
   if (e.code === 'Space') { e.preventDefault(); rotate(1); }
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'ArrowLeft') move(-1);

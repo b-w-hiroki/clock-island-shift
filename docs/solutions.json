@@ -1,0 +1,120 @@
+[
+  {
+    "level": 1,
+    "solution": [
+      "rotate(-1)",
+      "rotate(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "toggleGravity()"
+    ],
+    "states": 157
+  },
+  {
+    "level": 2,
+    "solution": [
+      "rotate(1)",
+      "rotate(1)",
+      "rotate(1)",
+      "move(-1)",
+      "move(-1)"
+    ],
+    "states": 119
+  },
+  {
+    "level": 3,
+    "solution": [
+      "rotate(-1)",
+      "rotate(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "toggleGravity()"
+    ],
+    "states": 157
+  },
+  {
+    "level": 4,
+    "solution": [
+      "toggleGravity()"
+    ],
+    "states": 3
+  },
+  {
+    "level": 5,
+    "solution": [
+      "rotate(-1)",
+      "rotate(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "toggleGravity()"
+    ],
+    "states": 169
+  },
+  {
+    "level": 6,
+    "solution": [
+      "rotate(1)",
+      "move(1)",
+      "toggleGravity()",
+      "move(1)"
+    ],
+    "states": 46
+  },
+  {
+    "level": 7,
+    "solution": [
+      "rotate(-1)",
+      "rotate(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "toggleGravity()"
+    ],
+    "states": 165
+  },
+  {
+    "level": 8,
+    "solution": [
+      "rotate(1)",
+      "move(1)"
+    ],
+    "states": 4
+  },
+  {
+    "level": 9,
+    "solution": [
+      "toggleGravity()",
+      "rotate(-1)",
+      "move(1)"
+    ],
+    "states": 57
+  },
+  {
+    "level": 10,
+    "solution": [
+      "rotate(1)"
+    ],
+    "states": 0
+  },
+  {
+    "level": 11,
+    "solution": [
+      "rotate(-1)",
+      "rotate(-1)",
+      "rotate(1)",
+      "move(-1)",
+      "toggleGravity()"
+    ],
+    "states": 157
+  },
+  {
+    "level": 12,
+    "solution": [
+      "rotate(1)",
+      "move(1)",
+      "toggleGravity()",
+      "move(1)",
+      "move(1)"
+    ],
+    "states": 113
+  }
+]

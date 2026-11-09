@@ -1,0 +1,7 @@
+const test=require('node:test'); const assert=require('node:assert/strict'); const harness=require('./harness.cjs');
+test('all 12 level definitions initialize in bounds',()=>{const h=harness(); for(let i=0;i<12;i++){h.run(`startLevel(${i})`);assert.equal(h.run('S.done'),false);assert.equal(h.run('S.player.x>=0&&S.player.x<N&&S.player.y>=0&&S.player.y<N'),true)}});
+test('reset cancels pending rotation',()=>{const h=harness();h.run('startLevel(0);rotate(1);reset()');h.flush();assert.equal(h.run('S.rot'),0);assert.equal(h.run('animating'),false)});
+test('rewind cancels pending rotation and restores blocks',()=>{const h=harness();h.run('startLevel(0);onCellTap(2,0);rotate(1);rewind()');h.flush();assert.equal(h.run('S.rot'),0);assert.equal(h.run('S.blocks.size'),1)});
+test('completion progress survives reload',()=>{const h=harness();h.run('startLevel(0);onCleared()');const reload=harness(h.storage.value);assert.equal(reload.run('progress.unlocked'),2);assert.equal(reload.run('continueIdx()'),1)});
+test('malformed progress cannot create invalid level index',()=>{for(const raw of ['{','null','{"unlocked":1.5,"cleared":[true]}','{"unlocked":"12","cleared":["yes"]}']){const h=harness(raw);assert.equal(h.run('Number.isInteger(progress.unlocked)'),true)}});
+for(const {level,solution} of require('../docs/solutions.json')) test(`level ${level}: recorded solution reaches goal`,()=>{assert.ok(solution);const h=harness();h.run(`startLevel(${level-1})`);for(const action of solution){h.run(action);assert.equal(h.flush(100),0)}assert.equal(h.run('S.result'),'クリア！')});
