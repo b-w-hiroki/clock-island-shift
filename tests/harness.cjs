@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 module.exports = function harness(saved = null) {
  const nodes = new Map(); const listeners = new Map();
- function node() { return {style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},appendChild(){},remove(){},addEventListener(){},querySelectorAll(){return []},textContent:'',innerHTML:''}; }
+ function node() { return {open:false,showModal(){this.open=true},close(){this.open=false},focus(){document.activeElement=this},style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},appendChild(){},remove(){},addEventListener(){},querySelectorAll(){return []},textContent:'',innerHTML:''}; }
  const document = {getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)},createElement:node,body:node(),addEventListener(type, fn){listeners.set(type, fn)}};
  let id=0; const timers=new Map(); const storage={value:saved};
  const ctx=vm.createContext({document,window:{},console,localStorage:{getItem(){return storage.value},setItem(k,v){storage.value=v}},setTimeout(fn){timers.set(++id,fn);return id},clearTimeout(i){timers.delete(i)},setInterval(){return 0},clearInterval(){}});
