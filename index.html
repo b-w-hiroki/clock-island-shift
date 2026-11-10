@@ -140,6 +140,7 @@
   <dialog id="wipeDialog" aria-labelledby="wipeHeading" aria-describedby="wipeDescription">
     <h2 id="wipeHeading">記録を消しますか？</h2>
     <p id="wipeDescription">クリア済みの面と解放した面の記録を消します。元に戻せません。迷ったら「取消」で戻れます。</p>
+    <p id="wipeError" role="alert" hidden></p>
     <div class="wipeActions">
       <button id="cancelWipeBtn" autofocus>取消</button>
       <button id="confirmWipeBtn">記録を消す</button>
@@ -397,6 +398,7 @@ const wipeDialog = document.getElementById('wipeDialog');
 function requestWipe() {
   if (wipeDialog.open) return;
   document.getElementById('confirmWipeBtn').disabled = false;
+  document.getElementById('wipeError').hidden = true;
   wipeDialog.showModal();
   document.getElementById('cancelWipeBtn').focus();
 }
@@ -407,8 +409,17 @@ function cancelWipe() {
 function confirmWipe() {
   if (!wipeDialog.open || document.getElementById('confirmWipeBtn').disabled) return;
   document.getElementById('confirmWipeBtn').disabled = true;
-  progress = { unlocked: 1, cleared: [] };
-  saveProgress();
+  const emptyProgress = { unlocked: 1, cleared: [] };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(emptyProgress)); }
+  catch (e) {
+    const error = document.getElementById('wipeError');
+    error.textContent = '記録を消せませんでした。保存が許可されているか確認してください。元の記録は保持しています。';
+    error.hidden = false;
+    document.getElementById('confirmWipeBtn').disabled = false;
+    document.getElementById('cancelWipeBtn').focus();
+    return;
+  }
+  progress = emptyProgress;
   wipeDialog.close();
   showTitle();
   document.getElementById('startBtn').focus();
