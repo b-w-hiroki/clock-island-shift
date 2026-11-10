@@ -80,6 +80,12 @@
   .lvBtn.cleared { background: #8a6d1f; color: #ffe9a8; }
   .lvBtn:disabled { opacity: .28; }
   #wipeBtn, #backBtn { background: transparent; color: #b9cdd6; font-size: 12px; padding: 6px 10px; text-decoration: underline; }
+  #wipeDialog { color: #eef6f3; background: #123950; border: 1px solid #f2c86d; border-radius: 18px; width: min(360px, calc(100vw - 48px)); box-sizing: border-box; padding: 22px; }
+  #wipeDialog::backdrop { background: rgba(6,18,28,.85); }
+  #wipeDialog h2 { font-size: 21px; }
+  #wipeDialog p { line-height: 1.7; font-size: 14px; }
+  .wipeActions { display: flex; flex-wrap: wrap; gap: 12px; }
+  #confirmWipeBtn { background: #9e3943; color: white; }
   #titleBtn { background: #37455c; color: #dbe7ee; }
   /* v16: BGMミュート切替 */
   #muteBtn { background: #2b4a5a; color: #cfe8ef; }
@@ -109,7 +115,7 @@
   <div id="phase">つくる</div>
   <div id="boardWrap"><div id="board"></div></div>
   <div id="blocksLeft"></div>
-  <div id="msg"></div>
+  <div id="msg" role="status"></div>
   <div id="controls">
     <div id="controlsMain">
       <button id="rotL" aria-label="左に回転">⟲</button>
@@ -131,6 +137,14 @@
     </div>
   </div>
   <div id="overlay"><div id="overlayCard"></div></div>
+  <dialog id="wipeDialog" aria-labelledby="wipeHeading" aria-describedby="wipeDescription">
+    <h2 id="wipeHeading">記録を消しますか？</h2>
+    <p id="wipeDescription">クリア済みの面と解放した面の記録を消します。元に戻せません。迷ったら「取消」で戻れます。</p>
+    <div class="wipeActions">
+      <button id="cancelWipeBtn" autofocus>取消</button>
+      <button id="confirmWipeBtn">記録を消す</button>
+    </div>
+  </dialog>
 <script>
 "use strict";
 // ===== レベル定義（つくる画面＝回転0の座標） =====
@@ -377,10 +391,31 @@ function showTitle() {
   card.querySelectorAll('.lvBtn').forEach(b => b.addEventListener('click', () => startLevel(Number(b.dataset.lv))));
   const back = document.getElementById('backBtn');
   if (back) back.addEventListener('click', hideOverlay);
-  document.getElementById('wipeBtn').addEventListener('click', () => {
-    progress = { unlocked: 1, cleared: [] }; saveProgress(); showTitle();
-  });
+  document.getElementById('wipeBtn').addEventListener('click', requestWipe);
 }
+const wipeDialog = document.getElementById('wipeDialog');
+function requestWipe() {
+  if (wipeDialog.open) return;
+  document.getElementById('confirmWipeBtn').disabled = false;
+  wipeDialog.showModal();
+  document.getElementById('cancelWipeBtn').focus();
+}
+function cancelWipe() {
+  wipeDialog.close();
+  document.getElementById('wipeBtn').focus();
+}
+function confirmWipe() {
+  if (!wipeDialog.open || document.getElementById('confirmWipeBtn').disabled) return;
+  document.getElementById('confirmWipeBtn').disabled = true;
+  progress = { unlocked: 1, cleared: [] };
+  saveProgress();
+  wipeDialog.close();
+  showTitle();
+  document.getElementById('startBtn').focus();
+}
+document.getElementById('cancelWipeBtn').addEventListener('click', cancelWipe);
+document.getElementById('confirmWipeBtn').addEventListener('click', confirmWipe);
+wipeDialog.addEventListener('cancel', (e) => { e.preventDefault(); cancelWipe(); });
 function showAllClear() {
   const card = document.getElementById('overlayCard');
   card.innerHTML = `
@@ -616,6 +651,9 @@ function render() {
   document.getElementById('rewindBtn').disabled = history.length === 0;
   const left = L.blockCount - S.blocks.size;
   blocksLeftEl.textContent = (S.shiftsUsed === 0 ? '箱 ' + '■'.repeat(left) + '□'.repeat(L.blockCount - left) + ' ／ ' : '') + '回転 あと' + (L.shifts - S.shiftsUsed) + '回';
+  const failed = S.done && S.result === 'おちた';
+  document.getElementById('rewindBtn').textContent = failed ? '↩ 1手戻す（Z）' : '↩';
+  document.getElementById('retryBtn').textContent = failed ? '↻ やり直す（R）' : '↻';
   msgEl.textContent = S.result;
   msgEl.className = S.result === 'クリア！' ? 'clear' : (S.result ? 'fail' : '');
   nextBtn.style.display = (S.done && S.result === 'クリア！' && levelIdx < LEVELS.length - 1) ? 'block' : 'none';
@@ -765,7 +803,7 @@ nextBtn.addEventListener('click', nextLevel);
 document.getElementById('titleBtn').addEventListener('click', showTitle);
 document.getElementById('muteBtn').addEventListener('click', () => { bgmMuted = !bgmMuted; if (bgmMuted) bgmStop(); else bgmStart(); updateMuteBtn(); });
 document.addEventListener('keydown', (e) => {
-  if (document.getElementById('overlay').style.display !== 'none') return;
+  if (wipeDialog.open || document.getElementById('overlay').style.display !== 'none') return;
   if (e.code === 'Space') { e.preventDefault(); rotate(1); }
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'ArrowLeft') move(-1);
