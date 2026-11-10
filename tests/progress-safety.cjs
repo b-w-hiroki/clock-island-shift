@@ -25,3 +25,13 @@ test('failure has visible recovery labels; undo and reset use existing mechanics
  assert.equal(h.nodes.get('rewindBtn').textContent,'↩');
  assert.equal(h.storage.value,saved);
 });
+
+test('storage refusal retains old progress and keeps confirmation cancellable', () => {
+ const h=harness(saved);
+ h.run('localStorage.setItem = () => { throw new Error("denied") }; requestWipe(); confirmWipe()');
+ assert.equal(h.storage.value,saved);
+ assert.equal(h.run('progress.unlocked'),7);
+ assert.equal(h.run('wipeDialog.open'),true);
+ assert.equal(h.nodes.get('wipeError').hidden,false);
+ h.run('cancelWipe()'); assert.equal(h.storage.value,saved);
+});
