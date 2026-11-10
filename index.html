@@ -416,6 +416,13 @@ function confirmWipe() {
 document.getElementById('cancelWipeBtn').addEventListener('click', cancelWipe);
 document.getElementById('confirmWipeBtn').addEventListener('click', confirmWipe);
 wipeDialog.addEventListener('cancel', (e) => { e.preventDefault(); cancelWipe(); });
+wipeDialog.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const cancel = document.getElementById('cancelWipeBtn');
+  const confirm = document.getElementById('confirmWipeBtn');
+  if (e.shiftKey && document.activeElement === cancel) { e.preventDefault(); confirm.focus(); }
+  if (!e.shiftKey && document.activeElement === confirm) { e.preventDefault(); cancel.focus(); }
+});
 function showAllClear() {
   const card = document.getElementById('overlayCard');
   card.innerHTML = `
