@@ -28,6 +28,17 @@ const fs=require('node:fs');
   await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
   assert.deepEqual(JSON.parse(await getSave()),{unlocked:1,cleared:[]});
   await page.locator('#startBtn').click();
+  for (const level of [0, 5, 11]) {
+    await page.evaluate(i=>startLevel(i),level);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    for (const id of ['board', 'rotL', 'rotR']) {
+      const b=await page.locator('#'+id).boundingBox();
+      assert.ok(b.x>=0 && b.x+b.width<=width, id+' fits');
+    }
+    assert.match(await page.locator('#rotL').evaluate(e=>getComputedStyle(e,'::after').content), /左回転/);
+    await page.screenshot({path:`screenshots/safety/board-${level+1}-${width}.png`,fullPage:true});
+  }
+  await page.evaluate(()=>startLevel(0));
   await page.evaluate(()=>{snapshot();fail();render()});
   assert.match(await page.locator('#rewindBtn').innerText(),/1手戻す/);
   assert.match(await page.locator('#retryBtn').innerText(),/やり直す/);
