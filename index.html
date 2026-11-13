@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>時計島のシフト</title>
+<meta name="description" content="時計仕掛けの浮島を舞台にした7×7マスのパズルゲーム。ブロックを積んで足場を作り、世界そのものを90度回転（SHIFT）させてゴールの旗を目指します。全12面。GitHub Game Off 2026（テーマ：SHIFT）参加作品。">
+<meta name="theme-color" content="#0d2436">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="時計島のシフト">
+<meta property="og:description" content="時計仕掛けの浮島を舞台にした7×7マスのパズルゲーム。ブロックを積んで足場を作り、世界そのものを90度回転（SHIFT）させてゴールの旗を目指します。全12面。GitHub Game Off 2026（テーマ：SHIFT）参加作品。">
+<meta property="og:image" content="https://raw.githubusercontent.com/b-w-hiroki/clock-island-shift/05e2210b98303102ca94c109397ac25c361d61d8/screenshots/title.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="時計島のシフト">
+<meta name="twitter:description" content="時計仕掛けの浮島を舞台にした7×7マスのパズルゲーム。ブロックを積んで足場を作り、世界そのものを90度回転（SHIFT）させてゴールの旗を目指します。全12面。GitHub Game Off 2026（テーマ：SHIFT）参加作品。">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/b-w-hiroki/clock-island-shift/05e2210b98303102ca94c109397ac25c361d61d8/screenshots/title.png">
 <!-- v16: BGM追加（Web Audio合成ループ＋ミュート切替）、短い画面でのレイアウト詰め直し（出現ボタンで2段になっても収まる寸法に）。v15: タイトル画面/レベル選択/進行度保存/全クリア画面、Web Audio効果音、バウンド無限ループ対策（連鎖上限3回）。v15バックアップ: role-shift-prototype-v15-backup.html -->
 <style>
   :root { --cell: min(calc((100vw - 50px) / 7), 52px); }
@@ -26,14 +37,6 @@
   #boardWrap.noanim { transition: none; }
   #board { display: grid; grid-template-columns: repeat(7, var(--cell)); gap: 3px; }
   .cell { width: var(--cell); height: var(--cell); border-radius: 6px; position: relative; background: rgba(8, 22, 34, .55); box-shadow: inset 0 0 0 1px rgba(160, 210, 230, .06); }
-  /* Existing shapes stay fixed; depth separates the island from empty cells. */
-  #board { border-radius: 9px; box-shadow: 0 14px 24px rgba(3, 13, 21, .28); }
-  .goal { background: radial-gradient(circle at 50% 45%, rgba(255,217,77,.16), rgba(8,22,34,.55) 72%); }
-  .goal::after { filter: drop-shadow(0 3px 2px rgba(0,0,0,.55)); }
-  #rotL, #rotR { box-shadow: inset 0 -3px 0 rgba(88,61,5,.28); }
-  #rotL::after, #rotR::after { display: block; font-size: 10px; letter-spacing: .06em; margin-top: 1px; }
-  #rotL::after { content: "左回転"; }
-  #rotR::after { content: "右回転"; }
   .terrain { background: linear-gradient(180deg, #7d8a99, #5d6b7a); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.18); }
   .stone { background: linear-gradient(180deg, #8a7f70, #655c50); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25); }
   .crack { background: linear-gradient(180deg, #7a6248, #59452e); box-shadow: inset 0 -5px 0 rgba(0,0,0,.3); }

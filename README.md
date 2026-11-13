@@ -7,6 +7,10 @@ GitHub Game Off 2026（テーマ：SHIFT）参加作品です。
 
 ![タイトル画面](screenshots/title.png)
 
+![プレイ画面1](screenshots/gameplay-1.png)
+
+![プレイ画面2](screenshots/gameplay-2.png)
+
 ## 遊び方
 
 ゲームは2つのフェーズを行き来します。
